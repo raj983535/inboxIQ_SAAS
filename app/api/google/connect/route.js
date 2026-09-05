@@ -1,0 +1,46 @@
+import { NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/clerk/auth';
+import { getGoogleOAuth2Client, GOOGLE_SCOPES, generateOAuthState } from '@/lib/google/oauth';
+import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req) {
+  try {
+    const user = await getAuthenticatedUser();
+    const { searchParams } = new URL(req.url);
+
+    const type = searchParams.get('type') || 'gmail'; // 'gmail' | 'drive'
+    const slot = parseInt(searchParams.get('slot') || '1', 10);
+
+    if (type !== 'gmail' && type !== 'drive') {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid connection type requested.', 400);
+    }
+
+    if (type === 'gmail' && (slot !== 1 && slot !== 2)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid Gmail connection slot. Must be 1 or 2.', 400);
+    }
+
+    const oauth2Client = getGoogleOAuth2Client();
+    const scopes = type === 'gmail' ? GOOGLE_SCOPES.GMAIL : GOOGLE_SCOPES.DRIVE;
+
+    const state = generateOAuthState({
+      userId: user.id,
+      type,
+      slot,
+    });
+
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline', // Requests refresh_token
+      prompt: 'consent', // Force consent so refresh_token is always returned
+      scope: scopes,
+      state: state,
+      include_granted_scopes: true,
+    });
+
+    return NextResponse.redirect(authUrl);
+  } catch (error) {
+    const safeError = formatSafeErrorResponse(error);
+    return NextResponse.json(safeError, { status: safeError.status });
+  }
+}
