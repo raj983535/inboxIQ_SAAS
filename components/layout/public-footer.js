@@ -20,7 +20,16 @@ export function PublicFooter() {
             </p>
             <div className="flex items-center gap-2 text-xs text-neutral-500">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />
-              <span>AES-256 encrypted • Least-privilege OAuth scopes</span>
+              <span>AES-256 encrypted • Least-privilege Google OAuth</span>
+            </div>
+            <div className="pt-1 text-xs text-neutral-500">
+              Support:{' '}
+              <a
+                href="mailto:sahilrajdurgapur23@gmail.com"
+                className="text-emerald-600 dark:text-emerald-400 font-mono hover:underline"
+              >
+                sahilrajdurgapur23@gmail.com
+              </a>
             </div>
           </div>
 
@@ -42,7 +51,7 @@ export function PublicFooter() {
               </li>
               <li>
                 <Link href="/pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                  Pricing (₹499/mo)
+                  Pricing &amp; Plans
                 </Link>
               </li>
               <li>
@@ -61,12 +70,12 @@ export function PublicFooter() {
           {/* Legal & Compliance Links */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-200 mb-3">
-              Legal & Compliance
+              Legal &amp; Compliance
             </h4>
             <ul className="space-y-2 text-xs md:text-sm">
               <li>
                 <Link href="/terms" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                  Terms & Conditions
+                  Terms &amp; Conditions
                 </Link>
               </li>
               <li>
@@ -76,7 +85,12 @@ export function PublicFooter() {
               </li>
               <li>
                 <Link href="/refund-policy" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                  Refund & Cancellation
+                  Cancellation &amp; Refund
+                </Link>
+              </li>
+              <li>
+                <Link href="/shipping-policy" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                  Shipping Policy
                 </Link>
               </li>
               <li>
@@ -102,19 +116,21 @@ export function PublicFooter() {
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">● Systems Operational</span>
               </li>
               <li className="pt-2 text-[11px] text-neutral-400">
-                Razorpay & Google Verified API Gateway
+                Razorpay &amp; Google Cloud Verified API Gateway
               </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
-          <p>© {new Date().getFullYear()} InboxIQ Technologies Inc. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/terms" className="hover:underline">Terms</Link>
-            <Link href="/privacy" className="hover:underline">Privacy</Link>
-            <Link href="/refund-policy" className="hover:underline">Refunds</Link>
+          <p>© {new Date().getFullYear()} InboxIQ. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <Link href="/terms" className="hover:underline">Terms &amp; Conditions</Link>
+            <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
+            <Link href="/refund-policy" className="hover:underline">Cancellation &amp; Refund</Link>
+            <Link href="/shipping-policy" className="hover:underline">Shipping Policy</Link>
             <Link href="/contact" className="hover:underline">Contact</Link>
+            <Link href="/pricing" className="hover:underline">Pricing</Link>
           </div>
         </div>
       </div>

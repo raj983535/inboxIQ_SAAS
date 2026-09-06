@@ -91,7 +91,7 @@ export function PublicNavbar() {
             onClick={() => setMobileOpen(false)}
             className="block py-2 text-sm font-medium text-neutral-700 dark:text-neutral-200"
           >
-            Pricing (₹499/mo)
+            Pricing
           </Link>
           <Link
             href="/#faq"
