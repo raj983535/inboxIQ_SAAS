@@ -120,29 +120,13 @@ export default function SignUpPage() {
         </p>
       </div>
 
-      {isLiveClerk ? (
-        <SignUp
-          appearance={{
-            elements: {
-              rootBox: 'mx-auto w-full max-w-md',
-              card: 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl rounded-2xl',
-              headerTitle: 'text-neutral-900 dark:text-white font-bold',
-              headerSubtitle: 'text-neutral-500 dark:text-neutral-400 text-xs',
-              formButtonPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm',
-              footerActionLink: 'text-emerald-600 hover:text-emerald-700',
-            },
-          }}
-          fallbackRedirectUrl="/onboarding"
-          signInUrl="/sign-in"
-        />
-      ) : (
-        <Card className="w-full max-w-xl shadow-2xl bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Compulsory Registration Information</CardTitle>
-            <CardDescription>
-              Profession, Country &amp; Gender are permanent setup details used to tailor your AI briefing.
-            </CardDescription>
-          </CardHeader>
+      <Card className="w-full max-w-xl shadow-2xl bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Compulsory Registration Information</CardTitle>
+          <CardDescription>
+            Profession, Country &amp; Gender are permanent setup details used to tailor your AI briefing.
+          </CardDescription>
+        </CardHeader>
         <CardContent>
           {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
 
@@ -311,7 +295,6 @@ export default function SignUpPage() {
           </form>
         </CardContent>
       </Card>
-      )}
     </div>
   );
 }
