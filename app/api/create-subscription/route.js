@@ -16,14 +16,39 @@ export async function POST(req) {
     const planInfo = getPlanForProfession(user.profession, requestedCurrency);
     const amount = planInfo.activePricing.amount;
 
-    const planConfigId = getRecurringRazorpayPlanId(user.profession, requestedCurrency);
-    if (!planConfigId) {
-      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, `A monthly Razorpay plan is not configured for ${planInfo.name} in ${requestedCurrency}.`, 500);
-    }
+    let planConfigId = getRecurringRazorpayPlanId(user.profession, requestedCurrency);
     const razorpay = getRazorpayClient();
+
+    if (!planConfigId) {
+      // Auto-create monthly plan in Razorpay if not pre-configured
+      try {
+        const createdPlan = await razorpay.plans.create({
+          period: 'monthly',
+          interval: 1,
+          item: {
+            name: `${planInfo.name} (Monthly)`,
+            amount: amount * 100, // in smallest currency unit (paise / cents)
+            currency: requestedCurrency,
+            description: `Monthly recurring subscription for ${planInfo.target}`,
+          },
+        });
+        planConfigId = createdPlan.id;
+      } catch (planErr) {
+        console.warn('Razorpay dynamic plan creation fallback:', planErr.message);
+      }
+    }
+
+    if (!planConfigId) {
+      throw new AppError(
+        ErrorCategories.CONFIGURATION_ERROR,
+        `A monthly Razorpay plan is not configured for ${planInfo.name} in ${requestedCurrency}.`,
+        500
+      );
+    }
+
     const sub = await razorpay.subscriptions.create({
       plan_id: planConfigId,
-      total_count: 120,
+      total_count: 120, // 10 years of monthly billing
       quantity: 1,
       customer_notify: 1,
       notes: {
