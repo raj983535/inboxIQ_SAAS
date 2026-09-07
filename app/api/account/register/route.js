@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
 
@@ -15,7 +16,6 @@ export async function POST(req) {
       country,
       reportTime = '08:00',
       timezone = 'Asia/Kolkata',
-      clerkUserId = null,
     } = body;
 
     // Validate mandatory fields
@@ -37,7 +37,11 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid profession selection.', 400);
     }
 
+    const authenticatedUser = await getAuthenticatedUser();
     const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail !== authenticatedUser.email.toLowerCase()) {
+      throw new AppError(ErrorCategories.AUTH_ERROR, 'Registration email must match the signed-in account.', 403);
+    }
 
     // Check if user already exists with this email
     const { data: existingUsers, error: lookupErr } = await supabaseAdmin
@@ -54,6 +58,9 @@ export async function POST(req) {
 
     let user;
     if (existingUser) {
+      if (existingUser.id !== authenticatedUser.id) {
+        throw new AppError(ErrorCategories.AUTH_ERROR, 'An account already exists for this email.', 409);
+      }
       const updatePayload = {
         name: name.trim(),
         gender: gender.toLowerCase(),
@@ -61,10 +68,6 @@ export async function POST(req) {
         country: country.trim(),
         updated_at: new Date().toISOString(),
       };
-      if (clerkUserId) {
-        updatePayload.clerk_user_id = clerkUserId;
-      }
-
       const { data: updatedUser, error: updateErr } = await supabaseAdmin
         .from('users')
         .update(updatePayload)
@@ -82,11 +85,10 @@ export async function POST(req) {
       }
       user = updatedUser;
     } else {
-      const newClerkId = clerkUserId || `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const { data: insertedUser, error: insertErr } = await supabaseAdmin
         .from('users')
         .insert({
-          clerk_user_id: newClerkId,
+          clerk_user_id: authenticatedUser.clerk_user_id,
           email: normalizedEmail,
           name: name.trim(),
           gender: gender.toLowerCase(),
