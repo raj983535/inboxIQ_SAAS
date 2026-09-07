@@ -39,13 +39,42 @@ export async function POST(req) {
 
     const effectiveClerkId = clerkUserId || `user_dev_${Date.now()}`;
 
-    // Upsert into public.users
-    const { data: user, error: userError } = await supabaseAdmin
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user already exists with this email or clerk_user_id
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
-      .upsert(
-        {
+      .select('id, clerk_user_id')
+      .or(`email.eq.${normalizedEmail},clerk_user_id.eq.${effectiveClerkId}`)
+      .maybeSingle();
+
+    let user;
+    if (existingUser) {
+      const { data: updatedUser, error: updateErr } = await supabaseAdmin
+        .from('users')
+        .update({
           clerk_user_id: effectiveClerkId,
-          email: email.trim().toLowerCase(),
+          name: name.trim(),
+          gender: gender.toLowerCase(),
+          profession: profession.toLowerCase(),
+          country: country.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingUser.id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        console.error('Registration user update error:', updateErr);
+        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to save registration profile.', 500);
+      }
+      user = updatedUser;
+    } else {
+      const { data: insertedUser, error: insertErr } = await supabaseAdmin
+        .from('users')
+        .insert({
+          clerk_user_id: effectiveClerkId,
+          email: normalizedEmail,
           name: name.trim(),
           gender: gender.toLowerCase(),
           profession: profession.toLowerCase(),
@@ -53,15 +82,15 @@ export async function POST(req) {
           role: 'user',
           status: 'active',
           updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'email' }
-      )
-      .select()
-      .single();
+        })
+        .select()
+        .single();
 
-    if (userError) {
-      console.error('Registration user insert error:', userError);
-      throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to save registration profile.', 500);
+      if (insertErr) {
+        console.error('Registration user insert error:', insertErr);
+        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to save registration profile.', 500);
+      }
+      user = insertedUser;
     }
 
     // Create / update user settings
