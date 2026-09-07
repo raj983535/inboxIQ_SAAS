@@ -121,11 +121,19 @@ export async function GET(req) {
       );
     }
 
+    // Check if user is in onboarding flow or regular settings
+    const { data: userSettings } = await supabaseAdmin
+      .from('user_settings')
+      .select('onboarding_completed')
+      .eq('user_id', userId)
+      .single();
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin || 'https://inboxiq.online';
-    return NextResponse.redirect(`${appUrl}/dashboard?connection_success=true&type=${type}`);
+    const destination = userSettings?.onboarding_completed ? '/settings' : '/onboarding';
+    return NextResponse.redirect(`${appUrl}${destination}?connection_success=true&type=${type}`);
   } catch (error) {
     const safeError = formatSafeErrorResponse(error);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin || 'https://inboxiq.online';
-    return NextResponse.redirect(`${appUrl}/settings?error=${encodeURIComponent(safeError.error.message)}`);
+    return NextResponse.redirect(`${appUrl}/onboarding?error=${encodeURIComponent(safeError.error.message)}`);
   }
 }

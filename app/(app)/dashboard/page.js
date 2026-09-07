@@ -123,6 +123,61 @@ export default function DashboardPage() {
       <div className="p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
         {error && <Alert variant="danger">{error}</Alert>}
 
+        {/* Live Active / Inactive Subscription Notification Section */}
+        {isSubscribed ? (
+          <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    Payment Verified &amp; Workflow Scheduled
+                  </span>
+                  <Badge variant="success">Active</Badge>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                  Your daily AI briefing is scheduled to execute at <strong className="text-emerald-700 dark:text-emerald-300 font-bold">{settings?.report_time || '08:00 AM'}</strong> ({settings?.timezone || 'Asia/Kolkata'}) and deliver to <strong className="text-neutral-900 dark:text-white font-bold">{user?.email}</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <Link href="/billing">
+                <Button size="sm" variant="outline" className="border-emerald-600/40 text-emerald-800 dark:text-emerald-300 text-xs">
+                  Manage Plan
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Subscription Inactive
+                  </span>
+                  <Badge variant="warning">Action Required</Badge>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                  Automated email intelligence is locked. Please activate your monthly subscription to enable scheduled briefings.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <Link href="/onboarding">
+                <Button size="sm" variant="primary" className="text-xs">
+                  Activate Subscription <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Admin Quick Banner (If user is an Admin) */}
         {isAdmin && (
           <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">

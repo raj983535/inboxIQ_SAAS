@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
@@ -12,9 +13,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  ExternalLink,
   ShieldCheck,
   AlertCircle,
+  BellRing,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,74 +23,101 @@ import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { IANA_TIMEZONES } from '@/lib/utils';
 import { AppTopbar } from '@/components/layout/app-topbar';
+import { getPlanForProfession } from '@/lib/pricing';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(1); // Step 1: Profile | Step 2: Connect | Step 3: Payment
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   // Form State
   const [reportTime, setReportTime] = useState('08:00');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [gmail1Connected, setGmail1Connected] = useState(false);
-  const [gmail2Connected, setGmail2Connected] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
   const [gmailAccounts, setGmailAccounts] = useState([]);
+  const [userData, setUserData] = useState(null);
   const [profile, setProfile] = useState({
-    name: '', gender: 'prefer_not_to_say', profession: 'professor_teacher', country: 'India',
+    name: '',
+    gender: 'male',
+    profession: 'professor_teacher',
+    country: 'India',
   });
 
-  // Fetch initial connection status
-  useEffect(() => {
-    async function checkStatus() {
-      try {
-        const res = await fetch('/api/account');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.settings) {
-            setReportTime(data.settings.report_time || '08:00');
-            setTimezone(data.settings.timezone || 'Asia/Kolkata');
-            if (data.settings.profile_completed) setStep(1);
-          }
-          if (data.user) {
-            setProfile((current) => ({
-              ...current,
-              name: data.user.name || '',
-              gender: data.user.gender || current.gender,
-              profession: data.user.profession || current.profession,
-              country: data.user.country || current.country,
-            }));
-          }
-          if (data.gmail_connections) {
-            setGmailAccounts(data.gmail_connections);
-            setGmail1Connected(data.gmail_connections.some((c) => c.connection_slot === 1 && c.status === 'connected'));
-            setGmail2Connected(data.gmail_connections.some((c) => c.connection_slot === 2 && c.status === 'connected'));
-          }
-          if (data.drive_connection) {
-            setDriveConnected(data.drive_connection.status === 'connected');
-          }
+  // Fetch initial connection & profile status from Supabase
+  const loadStatus = async () => {
+    try {
+      const res = await fetch('/api/account');
+      if (res.ok) {
+        const data = await res.json();
+        setUserData(data.user);
+
+        if (data.user) {
+          setProfile({
+            name: data.user.name || '',
+            gender: data.user.gender || 'male',
+            profession: data.user.profession || 'professor_teacher',
+            country: data.user.country || 'India',
+          });
         }
-      } catch (err) {
-        console.error('Failed to load initial account data:', err);
+
+        if (data.settings) {
+          setReportTime(data.settings.report_time || '08:00');
+          setTimezone(data.settings.timezone || 'Asia/Kolkata');
+        }
+
+        const hasGmail = (data.gmail_connections || []).some((c) => c.connection_slot === 1 && c.status === 'connected');
+        const hasDrive = data.drive_connection?.status === 'connected';
+        const isProfileDone = Boolean(data.settings?.profile_completed);
+        const isSubscribed = data.subscription?.status === 'active';
+
+        setGmailAccounts(data.gmail_connections || []);
+        setGmail1Connected(hasGmail);
+        setDriveConnected(hasDrive);
+
+        // Deterministic Step Placement based on persisted Supabase data
+        if (isSubscribed) {
+          // Already subscribed -> route straight to dashboard
+          router.push('/dashboard');
+        } else if (hasGmail && isProfileDone) {
+          setStep(3); // Move to Payment step
+        } else if (isProfileDone) {
+          setStep(2); // Move to Connect step
+        } else {
+          setStep(1); // Start at Profile setup
+        }
       }
+    } catch (err) {
+      console.error('Failed to load initial account data:', err);
+    } finally {
+      setInitialLoading(false);
     }
-    checkStatus();
+  };
+
+  useEffect(() => {
+    loadStatus();
   }, []);
 
-  const handleSaveProfile = async () => {
+  // STEP 1: Save Profile to Supabase
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/account/profile', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...profile, reportTime, timezone }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error?.message || 'Unable to save your profile.');
       }
-      setStep(1);
+      setStep(2);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -97,48 +125,99 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSaveSettings = async () => {
-    setLoading(true);
+  // STEP 3: Razorpay Subscription Checkout
+  const handleSubscribe = async () => {
+    setCheckoutLoading(true);
     setError(null);
+
+    const planInfo = getPlanForProfession(profile.profession, 'INR');
+
     try {
-      const res = await fetch('/api/update-report-settings', {
+      const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportTime, timezone, onboardingCompleted: true }),
+        body: JSON.stringify({
+          currency: 'INR',
+        }),
       });
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error?.message || 'Failed to update settings');
+        const json = await res.json();
+        throw new Error(json.error?.message || 'Failed to initialize subscription checkout.');
       }
-      setStep(4);
+
+      const { subscriptionId, keyId } = await res.json();
+
+      if (typeof window.Razorpay === 'undefined') {
+        throw new Error('Razorpay SDK is loading. Please try again in a moment.');
+      }
+
+      const options = {
+        key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        subscription_id: subscriptionId,
+        name: 'InboxIQ SaaS',
+        description: `${planInfo.name} (${planInfo.activePricing.formatted}/month)`,
+        currency: 'INR',
+        handler: async function (response) {
+          // Mark onboarding completed in database
+          await fetch('/api/update-report-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reportTime, timezone, onboardingCompleted: true }),
+          });
+          setPaymentSuccess(true);
+        },
+        prefill: {
+          name: profile.name || userData?.name || '',
+          email: userData?.email || '',
+        },
+        theme: {
+          color: '#10b981',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setCheckoutLoading(false);
     }
   };
 
   const steps = [
-    { num: 0, title: 'Your Profile', desc: 'Required details for personalized reports' },
-    { num: 1, title: 'Connect Mailboxes', desc: 'Authorize your primary & secondary Gmail' },
-    { num: 2, title: 'Google Drive', desc: 'Authorize PDF report storage folder' },
-    { num: 3, title: 'Delivery Schedule', desc: 'Select briefing time & timezone' },
-    { num: 4, title: 'Subscription', desc: 'Activate your InboxIQ plan' },
+    { num: 1, title: 'Profile Setup', desc: 'Personalize your AI briefing' },
+    { num: 2, title: 'Connect Mailbox', desc: 'Link 1 Gmail & Google Drive' },
+    { num: 3, title: 'Activate Subscription', desc: 'Start your daily intelligence' },
   ];
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <AppTopbar title="Setup Wizard" subtitle="Complete your profile, then configure your email intelligence pipeline" />
+  const planInfo = getPlanForProfession(profile.profession, 'INR');
 
-      <div className="p-6 sm:p-10 max-w-4xl mx-auto w-full space-y-8">
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080c14]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-neutral-500">Loading your setup configuration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-[#080c14]">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <AppTopbar title="Setup Wizard" subtitle="Complete the 3 quick steps to activate your daily intelligence briefing" />
+
+      <div className="p-6 sm:p-10 max-w-3xl mx-auto w-full space-y-8">
         {/* Step Indicator */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {steps.map((s) => (
             <div
               key={s.num}
-              className={`p-3 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-all ${
                 step === s.num
-                  ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40'
+                  ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
                   : step > s.num
                   ? 'border-emerald-200 dark:border-emerald-900 bg-neutral-50 dark:bg-neutral-900/40 text-neutral-400'
                   : 'border-neutral-200 dark:border-neutral-800 opacity-60'
@@ -146,7 +225,7 @@ export default function OnboardingPage() {
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                  className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
                     step > s.num
                       ? 'bg-emerald-600 text-white'
                       : step === s.num
@@ -165,82 +244,157 @@ export default function OnboardingPage() {
 
         {error && <Alert variant="danger">{error}</Alert>}
 
-        {step === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Before You Connect: Tell Us About Yourself</CardTitle>
-              <CardDescription>These required details personalize your briefing and are used as workflow context. They can only be changed by contacting support after setup.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Full name</label>
-                  <input required value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" placeholder="Your full name" />
+        {/* ========================================================================= */}
+        {/* STEP 1: PROFILE SETUP */}
+        {/* ========================================================================= */}
+        {step === 1 && (
+          <Card className="shadow-xl">
+            <form onSubmit={handleSaveProfile}>
+              <CardHeader>
+                <CardTitle>Step 1: Your Profile &amp; Preferences</CardTitle>
+                <CardDescription>
+                  These details permanently tailor your daily AI briefing to your professional priorities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Full Name
+                    </label>
+                    <input
+                      required
+                      value={profile.name}
+                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                      placeholder="e.g. Sahil Raj"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Gender
+                    </label>
+                    <select
+                      value={profile.gender}
+                      onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="non_binary">Non-binary</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Your Profession (AI Persona Focus)
+                    </label>
+                    <select
+                      value={profile.profession}
+                      onChange={(e) => setProfile({ ...profile, profession: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white font-medium"
+                    >
+                      <option value="professor_teacher">Professor / Teacher (Faculty Tier - ₹499/mo)</option>
+                      <option value="student">Student (Scholar Tier - ₹99/mo)</option>
+                      <option value="others">Working Professional / Others (₹499/mo)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Country
+                    </label>
+                    <select
+                      value={profile.country}
+                      onChange={(e) => setProfile({ ...profile, country: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                    >
+                      <option value="India">India</option>
+                      <option value="United States">United States</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Canada">Canada</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Preferred Briefing Time
+                    </label>
+                    <select
+                      value={reportTime}
+                      onChange={(e) => setReportTime(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                    >
+                      <option value="06:00">06:00 AM (Early Bird)</option>
+                      <option value="07:00">07:00 AM</option>
+                      <option value="08:00">08:00 AM (Recommended)</option>
+                      <option value="09:00">09:00 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
+                      Timezone
+                    </label>
+                    <select
+                      value={timezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                    >
+                      {IANA_TIMEZONES.map((tz) => (
+                        <option key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Country</label>
-                  <input required value={profile.country} onChange={(e) => setProfile({ ...profile, country: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" placeholder="Country" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Profession</label>
-                  <select value={profile.profession} onChange={(e) => setProfile({ ...profile, profession: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-                    <option value="professor_teacher">Professor / Teacher</option><option value="student">Student</option><option value="others">Working Professional / Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Gender</label>
-                  <select value={profile.gender} onChange={(e) => setProfile({ ...profile, gender: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-                    <option value="female">Female</option><option value="male">Male</option><option value="non_binary">Non-binary</option><option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Preferred delivery time</label>
-                  <select value={reportTime} onChange={(e) => setReportTime(e.target.value)} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-                    <option value="06:00">06:00 AM</option><option value="07:00">07:00 AM</option><option value="08:00">08:00 AM</option><option value="09:00">09:00 AM</option><option value="10:00">10:00 AM</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Timezone</label>
-                  <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-                    {IANA_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter><span className="text-xs text-neutral-500">Required before Gmail can be connected.</span><Button variant="primary" loading={loading} onClick={handleSaveProfile}>Save profile &amp; continue <ArrowRight className="w-4 h-4 ml-2" /></Button></CardFooter>
+              </CardContent>
+              <CardFooter className="flex justify-between items-center">
+                <span className="text-xs text-neutral-500">Saved securely in your private account.</span>
+                <Button type="submit" variant="primary" loading={loading}>
+                  Save Profile &amp; Continue <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
         )}
 
-        {/* STEP 1: CONNECT GMAIL */}
-        {step === 1 && (
-          <Card>
+        {/* ========================================================================= */}
+        {/* STEP 2: CONNECT GOOGLE (1 GMAIL + 1 DRIVE) */}
+        {/* ========================================================================= */}
+        {step === 2 && (
+          <Card className="shadow-xl">
             <CardHeader>
-              <CardTitle>Step 1: Connect Your Gmail Accounts</CardTitle>
+              <CardTitle>Step 2: Connect Your Google Mailbox &amp; Drive</CardTitle>
               <CardDescription>
-                Connect up to 2 Gmail accounts (e.g. work/university and personal research).
+                InboxIQ analyzes your primary mailbox and archives formatted PDF reports to your Google Drive.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Primary Slot */}
+              {/* Primary Gmail Slot (1 Mailbox for v1) */}
               <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                      Gmail #1 (Primary)
-                    </h4>
+                    <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Primary Gmail Mailbox (v1)</h4>
                     <p className="text-xs text-neutral-500">
                       {gmail1Connected
                         ? `Connected (${gmailAccounts.find((c) => c.connection_slot === 1)?.account_email})`
-                        : 'Required for morning briefing delivery'}
+                        : 'Required for daily briefing analysis & delivery'}
                     </p>
                   </div>
                 </div>
                 <div>
                   {gmail1Connected ? (
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="success">✓ Connected</Badge>
                   ) : (
                     <a href="/api/google/connect?type=gmail&slot=1">
                       <Button variant="primary" size="sm">
@@ -251,66 +405,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* Secondary Slot */}
-              <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                      Gmail #2 (Optional)
-                    </h4>
-                    <p className="text-xs text-neutral-500">
-                      {gmail2Connected
-                        ? `Connected (${gmailAccounts.find((c) => c.connection_slot === 2)?.account_email})`
-                        : 'Secondary account (e.g. personal research mailbox)'}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  {gmail2Connected ? (
-                    <Badge variant="success">Connected</Badge>
-                  ) : (
-                    <a href="/api/google/connect?type=gmail&slot=2">
-                      <Button variant="outline" size="sm">
-                        + Connect Second Gmail
-                      </Button>
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>We only request read &amp; send permissions. Tokens are encrypted at rest with AES-256.</span>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <div className="text-xs text-neutral-500">
-                {!gmail1Connected ? 'Connect at least Gmail #1 to proceed' : 'Ready to proceed'}
-              </div>
-              <Button
-                variant="primary"
-                disabled={!gmail1Connected && process.env.NODE_ENV === 'production'}
-                onClick={() => setStep(2)}
-              >
-                Continue to Step 2 <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* STEP 2: CONNECT GOOGLE DRIVE */}
-        {step === 2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Step 2: Connect Google Drive</CardTitle>
-              <CardDescription>
-                InboxIQ automatically archives generated PDF reports directly to your Google Drive.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+              {/* Google Drive Slot */}
               <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600">
@@ -319,16 +414,16 @@ export default function OnboardingPage() {
                   <div>
                     <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Google Drive Archival</h4>
                     <p className="text-xs text-neutral-500">
-                      Creates: <code>My Drive &gt; InboxIQ &gt; Daily Reports</code>
+                      {driveConnected ? 'Connected (Folder: My Drive > InboxIQ > Daily Reports)' : 'Optional — Archives PDF briefings directly to Drive'}
                     </p>
                   </div>
                 </div>
                 <div>
                   {driveConnected ? (
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="success">✓ Connected</Badge>
                   ) : (
                     <a href="/api/google/connect?type=drive">
-                      <Button variant="primary" size="sm">
+                      <Button variant="outline" size="sm">
                         Connect Google Drive
                       </Button>
                     </a>
@@ -336,120 +431,109 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <Alert variant="info" title="Automatic Folder Hierarchy">
-                You never need to create folders manually. Once connected, InboxIQ creates and manages the &quot;Daily Reports&quot; folder using the least-privilege <code>drive.file</code> scope.
-              </Alert>
+              <div className="flex items-center gap-2 text-xs text-neutral-500 pt-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>Tokens are encrypted with AES-256. Secondary mailbox slot will be available in v2.</span>
+              </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex justify-between items-center">
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
-              <Button variant="primary" onClick={() => setStep(3)}>
-                Continue to Step 3 <ArrowRight className="w-4 h-4 ml-2" />
+              <Button
+                variant="primary"
+                disabled={!gmail1Connected}
+                onClick={() => setStep(3)}
+              >
+                Continue to Step 3 (Activate Subscription) <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>
         )}
 
-        {/* STEP 3: SCHEDULE & TIMEZONE */}
+        {/* ========================================================================= */}
+        {/* STEP 3: MONTHLY SUBSCRIPTION & ACTIVATION */}
+        {/* ========================================================================= */}
         {step === 3 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Step 3: Set Your Briefing Schedule</CardTitle>
+          <Card className="shadow-2xl border-2 border-emerald-500/80">
+            <CardHeader className="text-center pb-2">
+              <Badge variant="success" className="mx-auto mb-2">Final Step</Badge>
+              <CardTitle className="text-2xl font-bold">Activate Your Monthly Intelligence Plan</CardTitle>
               <CardDescription>
-                Configure when your daily intelligence report should arrive every morning.
+                Payment activates the scheduled daily intelligence pipeline. Briefings will be sent to <strong>{userData?.email}</strong>.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
-                    Daily Report Time
-                  </label>
-                  <select
-                    value={reportTime}
-                    onChange={(e) => setReportTime(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            <CardContent className="p-8 space-y-6 max-w-lg mx-auto text-center">
+              {paymentSuccess ? (
+                /* IN-APP CONFIRMATION NOTIFICATION ON PAYMENT SUCCESS */
+                <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 space-y-4 animate-in fade-in zoom-in-95">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg">
+                    <BellRing className="w-6 h-6 animate-bounce" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
+                      Payment Successful!
+                    </h3>
+                    <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                      Your AI email intelligence pipeline is <strong>ACTIVATED</strong> and scheduled to execute every morning at <strong>{reportTime} ({timezone})</strong>. Briefings will be delivered directly to <strong>{userData?.email}</strong>.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => router.push('/dashboard')}
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-base py-3"
                   >
-                    <option value="06:00">06:00 AM (Early Bird)</option>
-                    <option value="07:00">07:00 AM</option>
-                    <option value="08:00">08:00 AM (Recommended)</option>
-                    <option value="09:00">09:00 AM (Standard Start)</option>
-                    <option value="10:00">10:00 AM</option>
-                  </select>
+                    Go to Your Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
                 </div>
+              ) : (
+                /* CHECKOUT CARD */
+                <div className="space-y-6">
+                  <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                        {planInfo.activePricing.formatted}
+                      </span>
+                      <span className="text-xs text-neutral-500 font-semibold">{planInfo.activePricing.period}</span>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      Tailored for: {planInfo.target}
+                    </p>
+                    <ul className="text-xs text-neutral-600 dark:text-neutral-300 space-y-1.5 text-left pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                      {planInfo.features.slice(0, 3).map((feat, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">
-                    IANA Timezone
-                  </label>
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  <Button
+                    onClick={handleSubscribe}
+                    loading={checkoutLoading}
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-base py-3.5 shadow-lg"
                   >
-                    {IANA_TIMEZONES.map((tz) => (
-                      <option key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
-                <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                  Calculated Reporting Window:
-                </p>
-                <p>
-                  Every execution will process all emails received in the preceding 24 hours relative to {reportTime} in {timezone}.
-                </p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" onClick={() => setStep(2)}>
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back
-              </Button>
-              <Button variant="primary" loading={loading} onClick={handleSaveSettings}>
-                Save &amp; Continue <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* STEP 4: SUBSCRIPTION ACTIVATION */}
-        {step === 4 && (
-          <Card className="border-2 border-emerald-500/80">
-            <CardHeader className="text-center">
-              <Badge variant="success" className="mx-auto mb-2">Almost Done</Badge>
-              <CardTitle>Step 4: Activate InboxIQ Pro</CardTitle>
-              <CardDescription>
-                Complete your subscription to activate automated daily morning briefings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-8 space-y-6 max-w-md mx-auto text-center">
-              <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
-                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">InboxIQ Pro Subscription</h3>
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">₹499</span>
-                  <span className="text-xs text-neutral-500 font-semibold">/ month</span>
-                </div>
-                <p className="text-xs text-neutral-400">Includes 2 Gmail accounts + Google Drive PDF archival</p>
-              </div>
-
-              <div className="space-y-3">
-                <Link href="/billing" className="block">
-                  <Button size="lg" className="w-full text-base py-3">
-                    Proceed to Razorpay Checkout <ArrowRight className="w-4 h-4 ml-2" />
+                    Subscribe &amp; Activate Briefing ({planInfo.activePricing.formatted}/mo) <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
-                </Link>
-                <Link href="/dashboard" className="block">
-                  <Button variant="ghost" size="sm" className="w-full text-xs">
-                    Skip to Dashboard (Setup Mode)
-                  </Button>
-                </Link>
-              </div>
+
+                  <p className="text-[11px] text-neutral-400">
+                    Cancel anytime in 1-click from Settings. Secured by Razorpay.
+                  </p>
+                </div>
+              )}
             </CardContent>
+            {!paymentSuccess && (
+              <CardFooter className="flex justify-start">
+                <Button variant="outline" size="sm" onClick={() => setStep(2)}>
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Connect
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         )}
       </div>
