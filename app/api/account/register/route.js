@@ -37,43 +37,56 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid profession selection.', 400);
     }
 
-    const effectiveClerkId = clerkUserId || `user_dev_${Date.now()}`;
-
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user already exists with this email or clerk_user_id
-    const { data: existingUser } = await supabaseAdmin
+    // Check if user already exists with this email
+    const { data: existingUsers, error: lookupErr } = await supabaseAdmin
       .from('users')
       .select('id, clerk_user_id')
-      .or(`email.eq.${normalizedEmail},clerk_user_id.eq.${effectiveClerkId}`)
-      .maybeSingle();
+      .eq('email', normalizedEmail)
+      .limit(1);
+
+    if (lookupErr) {
+      console.error('User lookup error:', lookupErr);
+    }
+
+    const existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
 
     let user;
     if (existingUser) {
+      const updatePayload = {
+        name: name.trim(),
+        gender: gender.toLowerCase(),
+        profession: profession.toLowerCase(),
+        country: country.trim(),
+        updated_at: new Date().toISOString(),
+      };
+      if (clerkUserId) {
+        updatePayload.clerk_user_id = clerkUserId;
+      }
+
       const { data: updatedUser, error: updateErr } = await supabaseAdmin
         .from('users')
-        .update({
-          clerk_user_id: effectiveClerkId,
-          name: name.trim(),
-          gender: gender.toLowerCase(),
-          profession: profession.toLowerCase(),
-          country: country.trim(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', existingUser.id)
         .select()
         .single();
 
       if (updateErr) {
         console.error('Registration user update error:', updateErr);
-        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to save registration profile.', 500);
+        throw new AppError(
+          ErrorCategories.DATABASE_ERROR,
+          `Failed to save registration profile: ${updateErr.message || updateErr.details || 'Update failed'}`,
+          500
+        );
       }
       user = updatedUser;
     } else {
+      const newClerkId = clerkUserId || `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const { data: insertedUser, error: insertErr } = await supabaseAdmin
         .from('users')
         .insert({
-          clerk_user_id: effectiveClerkId,
+          clerk_user_id: newClerkId,
           email: normalizedEmail,
           name: name.trim(),
           gender: gender.toLowerCase(),
@@ -88,13 +101,17 @@ export async function POST(req) {
 
       if (insertErr) {
         console.error('Registration user insert error:', insertErr);
-        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to save registration profile.', 500);
+        throw new AppError(
+          ErrorCategories.DATABASE_ERROR,
+          `Failed to save registration profile: ${insertErr.message || insertErr.details || 'Insert failed'}`,
+          500
+        );
       }
       user = insertedUser;
     }
 
     // Create / update user settings
-    await supabaseAdmin.from('user_settings').upsert(
+    const { error: settingsErr } = await supabaseAdmin.from('user_settings').upsert(
       {
         user_id: user.id,
         report_time: reportTime,
@@ -104,6 +121,15 @@ export async function POST(req) {
       },
       { onConflict: 'user_id' }
     );
+
+    if (settingsErr) {
+      console.error('User settings upsert error:', settingsErr);
+      throw new AppError(
+        ErrorCategories.DATABASE_ERROR,
+        `Failed to initialize user settings: ${settingsErr.message || settingsErr.details}`,
+        500
+      );
+    }
 
     return NextResponse.json({
       success: true,
