@@ -17,6 +17,8 @@ export async function POST(req) {
     const amount = planInfo.activePricing.amount;
 
     let planConfigId = getRecurringRazorpayPlanId(user.profession, requestedCurrency);
+    let activeCurrency = requestedCurrency;
+    let activeAmount = amount;
     const razorpay = getRazorpayClient();
 
     if (!planConfigId) {
@@ -27,21 +29,46 @@ export async function POST(req) {
           interval: 1,
           item: {
             name: `${planInfo.name} (Monthly)`,
-            amount: amount * 100, // in smallest currency unit (paise / cents)
-            currency: requestedCurrency,
+            amount: activeAmount * 100, // in smallest currency unit (paise / cents)
+            currency: activeCurrency,
             description: `Monthly recurring subscription for ${planInfo.target}`,
           },
         });
         planConfigId = createdPlan.id;
       } catch (planErr) {
         console.warn('Razorpay dynamic plan creation fallback:', planErr.message);
+        // If USD is not enabled on Razorpay merchant account, fall back to INR seamlessly
+        if (activeCurrency !== 'INR') {
+          activeCurrency = 'INR';
+          const inrPlanInfo = getPlanForProfession(user.profession, 'INR');
+          activeAmount = inrPlanInfo.activePricing.amount;
+          planConfigId = getRecurringRazorpayPlanId(user.profession, 'INR');
+
+          if (!planConfigId) {
+            try {
+              const inrPlan = await razorpay.plans.create({
+                period: 'monthly',
+                interval: 1,
+                item: {
+                  name: `${inrPlanInfo.name} (Monthly)`,
+                  amount: activeAmount * 100,
+                  currency: 'INR',
+                  description: `Monthly recurring subscription for ${inrPlanInfo.target}`,
+                },
+              });
+              planConfigId = inrPlan.id;
+            } catch (inrErr) {
+              console.warn('INR fallback plan notice:', inrErr.message);
+            }
+          }
+        }
       }
     }
 
     if (!planConfigId) {
       throw new AppError(
         ErrorCategories.CONFIGURATION_ERROR,
-        `A monthly Razorpay plan is not configured for ${planInfo.name} in ${requestedCurrency}.`,
+        `A monthly Razorpay plan is not configured for ${planInfo.name}.`,
         500
       );
     }
