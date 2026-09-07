@@ -138,7 +138,7 @@ export default function TermsPage() {
               9. Payment Processing
             </h2>
             <p>
-              Payments for InboxIQ subscriptions are processed securely through Razorpay or other enabled payment gateway infrastructure. By subscribing, you authorize our payment processor to charge the applicable subscription fees to your chosen payment method on a recurring monthly billing cycle.
+              Payments for InboxIQ subscriptions are processed securely through Razorpay. By subscribing, you authorize Razorpay to charge the applicable subscription fee automatically every month until you cancel. Razorpay may send payment and renewal notifications using the contact details associated with your payment method.
             </p>
           </section>
 

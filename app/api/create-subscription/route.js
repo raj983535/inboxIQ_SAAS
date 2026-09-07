@@ -4,7 +4,7 @@ import { getRazorpayClient } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
-import { getPlanForProfession } from '@/lib/pricing';
+import { getPlanForProfession, getRecurringRazorpayPlanId } from '@/lib/pricing';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
@@ -16,44 +16,25 @@ export async function POST(req) {
     const planInfo = getPlanForProfession(user.profession, requestedCurrency);
     const amount = planInfo.activePricing.amount;
 
-    let subscriptionId = `sub_${Date.now()}`;
-    let orderId = `order_${Date.now()}`;
-
-    try {
-      const razorpay = getRazorpayClient();
-      const planConfigId = process.env.RAZORPAY_PLAN_ID;
-
-      if (planConfigId) {
-        const sub = await razorpay.subscriptions.create({
-          plan_id: planConfigId,
-          total_count: 12,
-          quantity: 1,
-          customer_notify: 1,
-          notes: {
-            userId: user.id,
-            userEmail: user.email,
-            profession: user.profession,
-            currency: requestedCurrency,
-          },
-        });
-        subscriptionId = sub.id;
-      } else {
-        const order = await razorpay.orders.create({
-          amount: amount * 100, // in smallest currency unit (paise or cents)
-          currency: requestedCurrency,
-          receipt: `rcpt_${user.id.slice(0, 8)}_${Date.now()}`,
-          notes: {
-            userId: user.id,
-            planId: planInfo.id,
-            profession: user.profession,
-          },
-        });
-        orderId = order.id;
-        subscriptionId = `sub_order_${order.id}`;
-      }
-    } catch (rzpErr) {
-      console.warn('Razorpay server SDK notice (fallback tracking):', rzpErr.message);
+    const planConfigId = getRecurringRazorpayPlanId(user.profession, requestedCurrency);
+    if (!planConfigId) {
+      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, `A monthly Razorpay plan is not configured for ${planInfo.name} in ${requestedCurrency}.`, 500);
     }
+    const razorpay = getRazorpayClient();
+    const sub = await razorpay.subscriptions.create({
+      plan_id: planConfigId,
+      total_count: 120,
+      quantity: 1,
+      customer_notify: 1,
+      notes: {
+        userId: user.id,
+        userEmail: user.email,
+        planId: planInfo.id,
+        profession: user.profession,
+        currency: requestedCurrency,
+      },
+    });
+    const subscriptionId = sub.id;
 
     // Save/update subscription intent state in database
     await supabaseAdmin.from('subscriptions').upsert(
@@ -65,6 +46,7 @@ export async function POST(req) {
         currency: requestedCurrency,
         razorpay_subscription_id: subscriptionId,
         status: 'created',
+        cancel_at_cycle_end: false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }
@@ -73,7 +55,6 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       subscriptionId,
-      orderId,
       amount,
       currency: requestedCurrency,
       keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',

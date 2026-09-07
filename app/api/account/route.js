@@ -62,6 +62,7 @@ export async function GET() {
         report_time: '08:00',
         timezone: 'Asia/Kolkata',
         max_gmail_connections: 2,
+        profile_completed: false,
         onboarding_completed: false,
       },
       gmail_connections: gmailConnections || [],

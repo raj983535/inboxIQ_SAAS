@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/clerk/auth';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { getGoogleOAuth2Client, GOOGLE_SCOPES, generateOAuthState } from '@/lib/google/oauth';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 
@@ -19,6 +20,15 @@ export async function GET(req) {
 
     if (type === 'gmail' && (slot !== 1 && slot !== 2)) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid Gmail connection slot. Must be 1 or 2.', 400);
+    }
+
+    const { data: settings, error: settingsError } = await supabaseAdmin
+      .from('user_settings')
+      .select('profile_completed')
+      .eq('user_id', user.id)
+      .single();
+    if (settingsError || !settings?.profile_completed) {
+      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, 'Complete your required profile before connecting Google.', 400);
     }
 
     const oauth2Client = getGoogleOAuth2Client();

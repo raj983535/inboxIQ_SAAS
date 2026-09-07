@@ -13,11 +13,13 @@ export async function POST(req) {
     // 1. Subscription & Authorization Check
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
-      .select('status')
+      .select('status, current_period_end')
       .eq('user_id', user.id)
       .single();
 
-    const isAllowed = subscription?.status === 'active' || process.env.NODE_ENV !== 'production';
+    const isAllowed = subscription?.status === 'active' ||
+      (subscription?.status === 'cancelled' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date()) ||
+      process.env.NODE_ENV !== 'production';
     if (!isAllowed) {
       throw new AppError(
         ErrorCategories.AUTH_ERROR,
@@ -32,6 +34,9 @@ export async function POST(req) {
       .select('*')
       .eq('user_id', user.id)
       .single();
+    if (!settings?.profile_completed || !settings?.onboarding_completed) {
+      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, 'Complete your profile and onboarding before running a report.', 400);
+    }
 
     // 3. Fetch Connected Gmail Mailboxes
     const { data: gmailConnections } = await supabaseAdmin
@@ -55,6 +60,9 @@ export async function POST(req) {
       .eq('user_id', user.id)
       .eq('status', 'connected')
       .single();
+    if (!driveConn) {
+      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, 'Connect Google Drive before running a report.', 400);
+    }
 
     // 5. Create Execution Record in Supabase
     const executionId = generateExecutionId();

@@ -43,6 +43,7 @@ export async function POST(req) {
     } else if (event === 'subscription.completed' || event === 'subscription.expired') {
       targetStatus = 'expired';
     }
+    const cancelled = event === 'subscription.cancelled';
 
     // 4. Update Supabase
     if (userId) {
@@ -53,6 +54,7 @@ export async function POST(req) {
           razorpay_payment_id: entity.payment_id || entity.id,
           current_period_start: entity.current_start ? new Date(entity.current_start * 1000).toISOString() : new Date().toISOString(),
           current_period_end: entity.current_end ? new Date(entity.current_end * 1000).toISOString() : null,
+          cancel_at_cycle_end: cancelled,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
@@ -61,6 +63,7 @@ export async function POST(req) {
         .from('subscriptions')
         .update({
           status: targetStatus,
+          cancel_at_cycle_end: cancelled,
           updated_at: new Date().toISOString(),
         })
         .eq('razorpay_subscription_id', subscriptionId);

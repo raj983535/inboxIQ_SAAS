@@ -32,7 +32,7 @@ export default function RefundPolicyPage() {
               1. Subscription Cancellation
             </h2>
             <p>
-              Users may cancel their recurring InboxIQ subscription at any time directly through the <strong>Billing &amp; Subscription</strong> section in their account dashboard. Cancellation is self-service and takes effect immediately for future billing cycles.
+              Users may cancel their recurring InboxIQ subscription at any time through the <strong>Billing &amp; Subscription</strong> section in their account dashboard. Cancellation turns off automatic renewal; no further monthly charge will be attempted after the current paid billing period.
             </p>
           </section>
 

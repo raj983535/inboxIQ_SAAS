@@ -101,6 +101,23 @@ export default function BillingPage() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!window.confirm('Cancel automatic renewal? You will keep access until the end of the current paid billing period.')) return;
+    setCheckoutLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/cancel-subscription', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || 'Unable to cancel the subscription.');
+      setSuccessMsg(json.message);
+      await loadSubscription();
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
@@ -183,15 +200,15 @@ export default function BillingPage() {
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-xs text-neutral-500">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Payments verified securely server-side via Razorpay webhook.</span>
+              <span>Monthly recurring payments and renewal reminders are managed securely by Razorpay.</span>
             </div>
             {!isSubscribed ? (
               <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe}>
                 Subscribe for {planInfo.activePricing.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button size="sm" variant="outline" className="text-rose-600 hover:text-rose-700">
-                Cancel Subscription
+              <Button size="sm" variant="outline" loading={checkoutLoading} onClick={handleCancel} className="text-rose-600 hover:text-rose-700">
+                Cancel automatic renewal
               </Button>
             )}
           </CardFooter>

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
     report_time TEXT NOT NULL DEFAULT '08:00',
     timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
     max_gmail_connections INT NOT NULL DEFAULT 2,
+    profile_completed BOOLEAN NOT NULL DEFAULT false,
     onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     report_category_focus JSONB DEFAULT '["Student Communication", "Department / Administration", "Teaching / Academic", "Research", "Student Activities", "Finance / HR", "External / Professional"]'::jsonb,
     status TEXT NOT NULL DEFAULT 'active',
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     status TEXT NOT NULL DEFAULT 'inactive' CHECK (status IN ('inactive', 'created', 'active', 'past_due', 'cancelled', 'expired', 'failed')),
     current_period_start TIMESTAMPTZ,
     current_period_end TIMESTAMPTZ,
+    cancel_at_cycle_end BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

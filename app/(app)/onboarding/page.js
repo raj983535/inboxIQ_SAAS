@@ -25,7 +25,7 @@ import { AppTopbar } from '@/components/layout/app-topbar';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -36,6 +36,9 @@ export default function OnboardingPage() {
   const [gmail2Connected, setGmail2Connected] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
   const [gmailAccounts, setGmailAccounts] = useState([]);
+  const [profile, setProfile] = useState({
+    name: '', gender: 'prefer_not_to_say', profession: 'professor_teacher', country: 'India',
+  });
 
   // Fetch initial connection status
   useEffect(() => {
@@ -47,6 +50,16 @@ export default function OnboardingPage() {
           if (data.settings) {
             setReportTime(data.settings.report_time || '08:00');
             setTimezone(data.settings.timezone || 'Asia/Kolkata');
+            if (data.settings.profile_completed) setStep(1);
+          }
+          if (data.user) {
+            setProfile((current) => ({
+              ...current,
+              name: data.user.name || '',
+              gender: data.user.gender || current.gender,
+              profession: data.user.profession || current.profession,
+              country: data.user.country || current.country,
+            }));
           }
           if (data.gmail_connections) {
             setGmailAccounts(data.gmail_connections);
@@ -63,6 +76,26 @@ export default function OnboardingPage() {
     }
     checkStatus();
   }, []);
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/account/profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...profile, reportTime, timezone }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error?.message || 'Unable to save your profile.');
+      }
+      setStep(1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setLoading(true);
@@ -86,6 +119,7 @@ export default function OnboardingPage() {
   };
 
   const steps = [
+    { num: 0, title: 'Your Profile', desc: 'Required details for personalized reports' },
     { num: 1, title: 'Connect Mailboxes', desc: 'Authorize your primary & secondary Gmail' },
     { num: 2, title: 'Google Drive', desc: 'Authorize PDF report storage folder' },
     { num: 3, title: 'Delivery Schedule', desc: 'Select briefing time & timezone' },
@@ -94,11 +128,11 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <AppTopbar title="Setup Wizard" subtitle="Configure your email intelligence pipeline in 4 quick steps" />
+      <AppTopbar title="Setup Wizard" subtitle="Complete your profile, then configure your email intelligence pipeline" />
 
       <div className="p-6 sm:p-10 max-w-4xl mx-auto w-full space-y-8">
         {/* Step Indicator */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {steps.map((s) => (
             <div
               key={s.num}
@@ -130,6 +164,52 @@ export default function OnboardingPage() {
         </div>
 
         {error && <Alert variant="danger">{error}</Alert>}
+
+        {step === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Before You Connect: Tell Us About Yourself</CardTitle>
+              <CardDescription>These required details personalize your briefing and are used as workflow context. They can only be changed by contacting support after setup.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Full name</label>
+                  <input required value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" placeholder="Your full name" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Country</label>
+                  <input required value={profile.country} onChange={(e) => setProfile({ ...profile, country: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" placeholder="Country" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Profession</label>
+                  <select value={profile.profession} onChange={(e) => setProfile({ ...profile, profession: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+                    <option value="professor_teacher">Professor / Teacher</option><option value="student">Student</option><option value="others">Working Professional / Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Gender</label>
+                  <select value={profile.gender} onChange={(e) => setProfile({ ...profile, gender: e.target.value })} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+                    <option value="female">Female</option><option value="male">Male</option><option value="non_binary">Non-binary</option><option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Preferred delivery time</label>
+                  <select value={reportTime} onChange={(e) => setReportTime(e.target.value)} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+                    <option value="06:00">06:00 AM</option><option value="07:00">07:00 AM</option><option value="08:00">08:00 AM</option><option value="09:00">09:00 AM</option><option value="10:00">10:00 AM</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-2">Timezone</label>
+                  <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+                    {IANA_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter><span className="text-xs text-neutral-500">Required before Gmail can be connected.</span><Button variant="primary" loading={loading} onClick={handleSaveProfile}>Save profile &amp; continue <ArrowRight className="w-4 h-4 ml-2" /></Button></CardFooter>
+          </Card>
+        )}
 
         {/* STEP 1: CONNECT GMAIL */}
         {step === 1 && (

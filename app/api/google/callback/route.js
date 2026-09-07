@@ -5,6 +5,7 @@ import { encryptToken } from '@/lib/encryption';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { setupUserDriveFolders } from '@/lib/google/drive';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
+import { getAuthenticatedUser } from '@/lib/clerk/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,10 @@ export async function GET(req) {
     // 1. Verify CSRF state
     const stateData = verifyOAuthState(stateParam);
     const { userId, type, slot } = stateData;
+    const authenticatedUser = await getAuthenticatedUser();
+    if (authenticatedUser.id !== userId) {
+      throw new AppError(ErrorCategories.AUTH_ERROR, 'Google authorization does not match the signed-in user.', 403);
+    }
 
     // 2. Exchange code for tokens server-side
     const oauth2Client = getGoogleOAuth2Client();

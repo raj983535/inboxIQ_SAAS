@@ -71,7 +71,7 @@ export function PricingViewClient() {
                 <span className="text-neutral-500 text-sm font-semibold">{facultyPlan.period}</span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                {currency === 'INR' ? 'Billed in Indian Rupees (INR) via Razorpay' : 'Billed internationally in USD via Razorpay'}
+                {currency === 'INR' ? 'Billed monthly in Indian Rupees (INR) via Razorpay' : 'Billed monthly in USD via Razorpay'}
               </p>
             </div>
 
@@ -98,7 +98,7 @@ export function PricingViewClient() {
             </Link>
             <div className="flex items-center justify-center gap-2 text-[11px] text-neutral-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Secure payments powered by Razorpay. Cancel anytime.</span>
+              <span>Monthly recurring subscription via Razorpay. Cancel automatic renewal anytime.</span>
             </div>
           </div>
         </Card>
@@ -122,7 +122,7 @@ export function PricingViewClient() {
                 <span className="text-neutral-500 text-sm font-semibold">{studentPlan.period}</span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                {currency === 'INR' ? 'Billed in Indian Rupees (INR) via Razorpay' : 'Billed internationally in USD via Razorpay'}
+                {currency === 'INR' ? 'Billed monthly in Indian Rupees (INR) via Razorpay' : 'Billed monthly in USD via Razorpay'}
               </p>
             </div>
 
