@@ -29,12 +29,18 @@ export default function middleware(req, evt) {
   if (isLiveClerk) {
     return clerkMiddleware((auth, req) => {
       if (isProtectedRoute(req)) {
-        auth().protect();
+        const { userId } = auth();
+        if (!userId) {
+          // Keep user within inboxiq.online domain rather than unconfigured accounts.inboxiq.online DNS
+          const signInUrl = new URL('/sign-in', req.url);
+          signInUrl.searchParams.set('redirect_url', req.url);
+          return NextResponse.redirect(signInUrl);
+        }
       }
     })(req, evt);
   }
 
-  // Graceful passthrough for local dev testing
+  // Graceful passthrough
   return NextResponse.next();
 }
 
