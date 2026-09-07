@@ -116,11 +116,11 @@ export async function GET(req) {
       );
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin || 'https://inboxiq.online';
     return NextResponse.redirect(`${appUrl}/dashboard?connection_success=true&type=${type}`);
   } catch (error) {
     const safeError = formatSafeErrorResponse(error);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin || 'https://inboxiq.online';
     return NextResponse.redirect(`${appUrl}/settings?error=${encodeURIComponent(safeError.error.message)}`);
   }
 }
