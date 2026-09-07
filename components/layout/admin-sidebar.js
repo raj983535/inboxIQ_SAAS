@@ -21,7 +21,12 @@ import { useClerk } from '@clerk/nextjs';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-const isLiveClerk = clerkKey && !clerkKey.includes('placeholder') && !clerkKey.includes('mock') && !clerkKey.includes('Y2xlcmsuaW5ib3hpcS5kZXYk');
+const isLiveClerk = Boolean(
+  clerkKey &&
+  clerkKey.startsWith('pk_') &&
+  !clerkKey.includes('placeholder') &&
+  !clerkKey.includes('mock')
+);
 
 function AdminSignOutButton() {
   const router = useRouter();

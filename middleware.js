@@ -2,7 +2,12 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-const isLiveClerk = clerkKey && !clerkKey.includes('placeholder') && !clerkKey.includes('mock') && !clerkKey.includes('Y2xlcmsuaW5ib3hpcS5kZXYk');
+const isLiveClerk = Boolean(
+  clerkKey &&
+  clerkKey.startsWith('pk_') &&
+  !clerkKey.includes('placeholder') &&
+  !clerkKey.includes('mock')
+);
 
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
