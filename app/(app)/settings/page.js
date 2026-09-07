@@ -34,6 +34,9 @@ export default function SettingsPage() {
   // Editable Profile fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [profession, setProfession] = useState('professor_teacher');
+  const [country, setCountry] = useState('India');
+  const [gender, setGender] = useState('male');
 
   // Editable Schedule fields
   const [reportTime, setReportTime] = useState('08:00');
@@ -51,6 +54,9 @@ export default function SettingsPage() {
         if (json.user) {
           setName(json.user.name || '');
           setEmail(json.user.email || '');
+          setProfession(json.user.profession || 'professor_teacher');
+          setCountry(json.user.country || 'India');
+          setGender(json.user.gender || 'male');
         }
         if (json.settings) {
           setReportTime(json.settings.report_time || '08:00');
@@ -78,7 +84,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name, email, profession, country, gender }),
       });
 
       if (!res.ok) {
@@ -87,6 +93,7 @@ export default function SettingsPage() {
       }
 
       setSuccessMsg('Profile updated successfully.');
+      await loadData();
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(err.message);
@@ -198,53 +205,68 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {/* Locked One-Time Registration Fields */}
+              {/* Editable One-Time Registration Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                {/* Profession (Locked) */}
-                <div className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Profession</span>
-                    <Badge variant="default" className="text-[10px] gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Locked
-                    </Badge>
-                  </div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {professionLabels[user?.profession] || user?.profession || 'Professor / Teacher'}
-                  </div>
-                  <p className="text-[10px] text-neutral-400">Permanent registration data</p>
+                {/* Profession (Editable) */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
+                    Profession
+                  </label>
+                  <select
+                    value={profession}
+                    onChange={(e) => setProfession(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="professor_teacher">Professor / Teacher</option>
+                    <option value="student">Student</option>
+                    <option value="others">Others / Professional</option>
+                  </select>
                 </div>
 
-                {/* Country (Locked) */}
-                <div className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Country</span>
-                    <Badge variant="default" className="text-[10px] gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Locked
-                    </Badge>
-                  </div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {user?.country || 'India'}
-                  </div>
-                  <p className="text-[10px] text-neutral-400">Permanent billing territory</p>
+                {/* Country (Editable) */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
+                    Country
+                  </label>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="India">India</option>
+                    <option value="United States">United States</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Germany">Germany</option>
+                    <option value="France">France</option>
+                    <option value="United Arab Emirates">United Arab Emirates</option>
+                    <option value="Singapore">Singapore</option>
+                    <option value="Japan">Japan</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
 
-                {/* Gender (Locked) */}
-                <div className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Gender</span>
-                    <Badge variant="default" className="text-[10px] gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Locked
-                    </Badge>
-                  </div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {genderLabels[user?.gender] || user?.gender || 'Male'}
-                  </div>
-                  <p className="text-[10px] text-neutral-400">Permanent demographic data</p>
+                {/* Gender (Editable) */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
+                    Gender
+                  </label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="non_binary">Non-Binary</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
                 </div>
               </div>
             </CardContent>
             <CardFooter>
-              <div className="text-xs text-neutral-400">Permanent fields cannot be edited after registration.</div>
+              <div className="text-xs text-neutral-400">Updates will adjust your AI briefing persona and subscription tier.</div>
               <Button type="submit" loading={savingProfile} variant="primary" size="sm">
                 <Save className="w-3.5 h-3.5 mr-1" /> Save Profile
               </Button>

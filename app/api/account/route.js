@@ -91,20 +91,12 @@ export async function PATCH(req) {
     const user = await getAuthenticatedUser();
     const body = await req.json();
 
-    // Reject attempt to modify permanent fields
-    if (body.profession && body.profession !== user.profession) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Profession is permanent registration data and cannot be modified.', 400);
-    }
-    if (body.country && body.country !== user.country) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Country is permanent registration data and cannot be modified.', 400);
-    }
-    if (body.gender && body.gender !== user.gender) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Gender is permanent registration data and cannot be modified.', 400);
-    }
-
     const updates = {};
     if (body.name && typeof body.name === 'string') updates.name = body.name.trim();
     if (body.email && typeof body.email === 'string') updates.email = body.email.trim().toLowerCase();
+    if (body.profession && typeof body.profession === 'string') updates.profession = body.profession.toLowerCase();
+    if (body.country && typeof body.country === 'string') updates.country = body.country.trim();
+    if (body.gender && typeof body.gender === 'string') updates.gender = body.gender.toLowerCase();
     updates.updated_at = new Date().toISOString();
 
     if (Object.keys(updates).length > 0) {
