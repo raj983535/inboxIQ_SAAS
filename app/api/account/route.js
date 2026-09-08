@@ -16,7 +16,7 @@ export async function GET() {
       { data: settings },
       { data: gmailConnections },
       { data: driveConnection },
-      { data: subscription },
+      { data: subscriptions },
       { data: recentReports }
     ] = await Promise.all([
       supabaseAdmin.from('user_settings').select('*').eq('user_id', user.id).maybeSingle(),
@@ -29,9 +29,10 @@ export async function GET() {
         .eq('user_id', user.id)
         .maybeSingle(),
       supabaseAdmin.from('subscriptions')
-        .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end')
+        .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end, updated_at')
         .eq('user_id', user.id)
-        .maybeSingle(),
+        .order('updated_at', { ascending: false })
+        .limit(1),
       supabaseAdmin.from('reports')
         .select('id, report_date, report_type, status, email_delivery_status, drive_upload_status, created_at')
         .eq('user_id', user.id)
@@ -39,34 +40,45 @@ export async function GET() {
         .limit(5),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        gender: user.gender || 'male',
-        profession: user.profession || 'professor_teacher',
-        country: user.country || 'India',
-        role: user.role,
+    const activeSub = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+
+    return NextResponse.json(
+      {
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          gender: user.gender || 'male',
+          profession: user.profession || 'professor_teacher',
+          country: user.country || 'India',
+          role: user.role,
+        },
+        settings: settings || {
+          report_time: '08:00',
+          timezone: 'Asia/Kolkata',
+          max_gmail_connections: 2,
+          profile_completed: false,
+          onboarding_completed: false,
+        },
+        gmail_connections: gmailConnections || [],
+        drive_connection: driveConnection || null,
+        subscription: activeSub || {
+          status: 'inactive',
+          plan_id: user.profession === 'student' ? 'plan_student_pro' : 'plan_faculty_pro',
+          amount: user.profession === 'student' ? (user.country === 'India' ? 99 : 4) : (user.country === 'India' ? 499 : 8),
+          currency: user.country === 'India' ? 'INR' : 'USD',
+        },
+        recent_reports: recentReports || [],
       },
-      settings: settings || {
-        report_time: '08:00',
-        timezone: 'Asia/Kolkata',
-        max_gmail_connections: 2,
-        profile_completed: false,
-        onboarding_completed: false,
-      },
-      gmail_connections: gmailConnections || [],
-      drive_connection: driveConnection || null,
-      subscription: subscription || {
-        status: 'inactive',
-        plan_id: user.profession === 'student' ? 'plan_student_pro' : 'plan_faculty_pro',
-        amount: user.profession === 'student' ? (user.country === 'India' ? 99 : 4) : (user.country === 'India' ? 499 : 8),
-        currency: user.country === 'India' ? 'INR' : 'USD',
-      },
-      recent_reports: recentReports || [],
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
     return NextResponse.json(safeError, { status: safeError.status });

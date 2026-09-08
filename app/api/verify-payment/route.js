@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { verifyPaymentSignature } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -41,31 +41,72 @@ export async function POST(req) {
     const profession = user?.profession || 'professor_teacher';
     const planInfo = getPlanForProfession(profession, requestedCurrency);
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
 
-    // Mark subscription and user account as active in database
-    await supabaseAdmin.from('subscriptions').upsert(
-      {
-        user_id: user.id,
-        plan_id: planId || planInfo.id,
-        plan_name: planInfo.name,
-        amount: planInfo.activePricing.amount,
-        currency: requestedCurrency,
-        razorpay_subscription_id: razorpay_order_id,
-        razorpay_payment_id: razorpay_payment_id,
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEnd,
-        cancel_at_cycle_end: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
+    // Check if subscription record already exists for user
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    // Update user onboarding completed flag if needed
+    if (existingSub?.id) {
+      const { error: updateErr } = await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          plan_id: planId || planInfo.id,
+          plan_name: planInfo.name,
+          amount: planInfo.activePricing.amount,
+          currency: requestedCurrency,
+          razorpay_order_id: razorpay_order_id,
+          razorpay_payment_id: razorpay_payment_id,
+          razorpay_subscription_id: razorpay_order_id,
+          status: 'active',
+          current_period_start: nowIso,
+          current_period_end: periodEnd,
+          cancel_at_cycle_end: false,
+          updated_at: nowIso,
+        })
+        .eq('id', existingSub.id);
+
+      if (updateErr) {
+        console.error('Subscription update failed:', updateErr);
+      }
+    } else {
+      const { error: insertErr } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_id: planId || planInfo.id,
+          plan_name: planInfo.name,
+          amount: planInfo.activePricing.amount,
+          currency: requestedCurrency,
+          razorpay_order_id: razorpay_order_id,
+          razorpay_payment_id: razorpay_payment_id,
+          razorpay_subscription_id: razorpay_order_id,
+          status: 'active',
+          current_period_start: nowIso,
+          current_period_end: periodEnd,
+          cancel_at_cycle_end: false,
+          updated_at: nowIso,
+        });
+
+      if (insertErr) {
+        console.error('Subscription insert failed:', insertErr);
+      }
+    }
+
+    // Mark onboarding completed in user_settings
     await supabaseAdmin
       .from('user_settings')
-      .update({ onboarding_completed: true })
-      .eq('user_id', user.id);
+      .upsert(
+        {
+          user_id: user.id,
+          onboarding_completed: true,
+          updated_at: nowIso,
+        },
+        { onConflict: 'user_id' }
+      );
 
     return NextResponse.json({
       success: true,

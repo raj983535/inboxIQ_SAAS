@@ -33,6 +33,10 @@ import { useAccount } from '@/context/account-context';
 export default function DashboardPage() {
   const { data, loading, error, refreshAccount } = useAccount();
 
+  useEffect(() => {
+    refreshAccount();
+  }, []);
+
   const user = data?.user;
   const settings = data?.settings;
   const subscription = data?.subscription;

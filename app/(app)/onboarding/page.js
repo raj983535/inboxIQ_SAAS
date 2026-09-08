@@ -530,7 +530,10 @@ export default function OnboardingPage() {
                     </p>
                   </div>
                   <Button
-                    onClick={() => router.push('/dashboard')}
+                    onClick={async () => {
+                      await refreshAccount();
+                      router.push('/dashboard');
+                    }}
                     variant="primary"
                     size="lg"
                     className="w-full text-base py-3"

@@ -539,11 +539,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto pt-4">
           {/* Faculty / Professional Plan */}
-          <Card className="border-2 border-emerald-500/80 shadow-2xl relative bg-white dark:bg-neutral-900 flex flex-col justify-between">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-max">
-              <span className="bg-emerald-600 text-white text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow whitespace-nowrap inline-block">
+          <Card className="border-2 border-emerald-500/80 shadow-2xl relative bg-white dark:bg-neutral-900 flex flex-col justify-between !overflow-visible mt-4">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-max z-20">
+              <span className="bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-lg whitespace-nowrap inline-block">
                 Faculty &amp; Professional
               </span>
             </div>
@@ -583,9 +583,9 @@ export default function LandingPage() {
           </Card>
 
           {/* Student Plan */}
-          <Card className="border border-amber-300 dark:border-amber-800 shadow-xl relative bg-white dark:bg-neutral-900 flex flex-col justify-between">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-max">
-              <span className="bg-amber-600 text-white text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow whitespace-nowrap inline-block">
+          <Card className="border border-amber-300 dark:border-amber-800 shadow-xl relative bg-white dark:bg-neutral-900 flex flex-col justify-between !overflow-visible mt-4">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-max z-20">
+              <span className="bg-amber-600 text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-lg whitespace-nowrap inline-block">
                 Student Special
               </span>
             </div>

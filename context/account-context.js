@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
@@ -18,11 +18,18 @@ export function AccountProvider({ children }) {
   const fetchAccount = useCallback(async (showLoading = false) => {
     if (showLoading && !data) setLoading(true);
     try {
-      const res = await fetch('/api/account');
+      const res = await fetch(`/api/account?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (res.ok) {
         const json = await res.json();
         setData(json);
         setError(null);
+        return json;
       } else {
         const errJson = await res.json().catch(() => ({}));
         setError(errJson.error?.message || 'Failed to load account data.');
