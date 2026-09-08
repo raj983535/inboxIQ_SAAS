@@ -71,17 +71,32 @@ export async function GET() {
         updated_at: nowIso,
       };
 
+      let dbError = null;
+      let dbData = null;
+
       if (existingSub?.id) {
-        await supabaseAdmin
+        const { data: updData, error: updErr } = await supabaseAdmin
           .from('subscriptions')
           .update(subPayload)
-          .eq('id', existingSub.id);
+          .eq('id', existingSub.id)
+          .select();
+        dbError = updErr;
+        dbData = updData;
       } else {
-        await supabaseAdmin.from('subscriptions').insert(subPayload);
+        const { data: insData, error: insErr } = await supabaseAdmin
+          .from('subscriptions')
+          .insert(subPayload)
+          .select();
+        dbError = insErr;
+        dbData = insData;
+      }
+
+      if (dbError) {
+        console.error('Supabase subscriptions write error:', JSON.stringify(dbError));
       }
 
       activeSub = {
-        id: existingSub?.id || 'admin_sub',
+        id: existingSub?.id || dbData?.[0]?.id || 'admin_sub',
         plan_id: planId,
         plan_name: planName,
         amount: amount,
@@ -120,6 +135,10 @@ export async function GET() {
           currency: user.country === 'India' ? 'INR' : 'USD',
         },
         recent_reports: recentReports || [],
+        db_debug: {
+          target_supabase_project: process.env.NEXT_PUBLIC_SUPABASE_URL || 'not-set',
+          has_service_role_key: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+        },
       },
       {
         headers: {
