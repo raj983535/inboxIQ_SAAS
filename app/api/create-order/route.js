@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { getRazorpayClient } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -30,7 +30,7 @@ export async function POST(req) {
       );
     }
 
-    const receipt = body.receipt || `rcpt_${user.id.slice(0, 8)}_${Date.now().toString().slice(-6)}`;
+    const receipt = `rcpt_${Date.now()}`;
     const razorpay = getRazorpayClient();
 
     const order = await razorpay.orders.create({
@@ -68,7 +68,7 @@ export async function POST(req) {
       amount: order.amount,
       currency: order.currency,
       receipt: order.receipt,
-      keyId: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      keyId: (process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '').trim(),
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);

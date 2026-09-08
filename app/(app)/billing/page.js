@@ -103,7 +103,6 @@ export default function BillingPage() {
         prefill: {
           name: user?.name || '',
           email: user?.email || '',
-          contact: '9999999999',
         },
         theme: {
           color: '#10b981',
