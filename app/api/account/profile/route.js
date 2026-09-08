@@ -34,18 +34,62 @@ export async function POST(req) {
       country: country.trim(),
       updated_at: new Date().toISOString(),
     }).eq('id', user.id);
-    if (profileError) throw new AppError(ErrorCategories.DATABASE_ERROR, 'Unable to save your profile.', 500);
+    if (profileError) {
+      console.error('Profile update error:', profileError);
+      throw new AppError(ErrorCategories.DATABASE_ERROR, 'Unable to save your profile: ' + profileError.message, 500);
+    }
 
-    const { error: settingsError } = await supabaseAdmin.from('user_settings').upsert({
-      user_id: user.id,
+    // Check if user_settings exists
+    const { data: existingSettings } = await supabaseAdmin
+      .from('user_settings')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let settingsError = null;
+    const settingsPayload = {
       report_time: reportTime,
       timezone,
       max_gmail_connections: 2,
       profile_completed: true,
       onboarding_completed: false,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (settingsError) throw new AppError(ErrorCategories.DATABASE_ERROR, 'Unable to save your delivery settings.', 500);
+    };
+
+    if (existingSettings) {
+      const res = await supabaseAdmin
+        .from('user_settings')
+        .update(settingsPayload)
+        .eq('user_id', user.id);
+      settingsError = res.error;
+    } else {
+      const res = await supabaseAdmin
+        .from('user_settings')
+        .insert({
+          user_id: user.id,
+          ...settingsPayload,
+        });
+      settingsError = res.error;
+    }
+
+    if (settingsError) {
+      console.warn('user_settings primary write error, attempting resilient fallback:', settingsError.message);
+      const fallbackPayload = {
+        report_time: reportTime,
+        timezone,
+        max_gmail_connections: 2,
+        onboarding_completed: false,
+        updated_at: new Date().toISOString(),
+      };
+      const fallbackRes = existingSettings
+        ? await supabaseAdmin.from('user_settings').update(fallbackPayload).eq('user_id', user.id)
+        : await supabaseAdmin.from('user_settings').insert({ user_id: user.id, ...fallbackPayload });
+      
+      if (fallbackRes.error) {
+        console.error('user_settings fallback error:', fallbackRes.error);
+        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Unable to save your delivery settings: ' + fallbackRes.error.message, 500);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
