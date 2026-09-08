@@ -218,6 +218,7 @@ export default function OnboardingPage() {
         prefill: {
           name: profile.name || userData?.name || '',
           email: userData?.email || '',
+          contact: '9999999999',
         },
         theme: {
           color: '#10b981',
