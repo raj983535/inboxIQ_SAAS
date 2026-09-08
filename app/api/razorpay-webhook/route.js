@@ -3,6 +3,7 @@ import { verifyRazorpayWebhookSignature } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
+import { sendRenewalConfirmationEmail } from '@/lib/email';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
@@ -25,8 +26,9 @@ export async function POST(req) {
     const event = payload.event;
     const entity = payload.payload?.subscription?.entity || payload.payload?.payment?.entity || {};
 
-    const subscriptionId = entity.id || entity.subscription_id;
+    const subscriptionId = entity.subscription_id || entity.id;
     const userId = entity.notes?.userId;
+    const userEmail = entity.notes?.userEmail || entity.email;
 
     if (!subscriptionId && !userId) {
       return NextResponse.json({ success: true, message: 'Event ignored: no identifier found.' });
@@ -34,7 +36,9 @@ export async function POST(req) {
 
     // 3. Process events idempotently
     let targetStatus = 'active';
-    if (event === 'subscription.activated' || event === 'subscription.charged' || event === 'payment.captured') {
+    const isCharged = event === 'subscription.activated' || event === 'subscription.charged' || event === 'payment.captured';
+
+    if (isCharged) {
       targetStatus = 'active';
     } else if (event === 'subscription.pending' || event === 'subscription.halted') {
       targetStatus = 'past_due';
@@ -43,30 +47,49 @@ export async function POST(req) {
     } else if (event === 'subscription.completed' || event === 'subscription.expired') {
       targetStatus = 'expired';
     }
-    const cancelled = event === 'subscription.cancelled';
+
+    const nextEnd = entity.current_end
+      ? new Date(entity.current_end * 1000).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const updatePayload = {
+      status: targetStatus,
+      razorpay_customer_id: entity.customer_id || null,
+      razorpay_payment_id: entity.payment_id || entity.id,
+      razorpay_subscription_id: subscriptionId,
+      current_period_start: entity.current_start ? new Date(entity.current_start * 1000).toISOString() : new Date().toISOString(),
+      current_period_end: nextEnd,
+      updated_at: new Date().toISOString(),
+    };
 
     // 4. Update Supabase
     if (userId) {
       await supabaseAdmin
         .from('subscriptions')
-        .update({
-          status: targetStatus,
-          razorpay_payment_id: entity.payment_id || entity.id,
-          current_period_start: entity.current_start ? new Date(entity.current_start * 1000).toISOString() : new Date().toISOString(),
-          current_period_end: entity.current_end ? new Date(entity.current_end * 1000).toISOString() : null,
-          cancel_at_cycle_end: cancelled,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('user_id', userId);
     } else if (subscriptionId) {
       await supabaseAdmin
         .from('subscriptions')
-        .update({
-          status: targetStatus,
-          cancel_at_cycle_end: cancelled,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('razorpay_subscription_id', subscriptionId);
+    }
+
+    // 5. Send automated 30-day renewal confirmation email to user
+    if (isCharged && userEmail) {
+      try {
+        await sendRenewalConfirmationEmail({
+          email: userEmail,
+          name: entity.notes?.userName || '',
+          planName: entity.notes?.planName || 'InboxIQ Pro',
+          amount: entity.amount ? Math.round(entity.amount / 100) : 99,
+          currency: entity.currency || 'INR',
+          paymentId: entity.payment_id || entity.id,
+          nextRenewalDate: nextEnd,
+        });
+      } catch (mailErr) {
+        console.warn('Renewal email notification notice:', mailErr.message);
+      }
     }
 
     return NextResponse.json({ success: true, processed_event: event });
