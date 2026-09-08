@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
 import { getPlanForProfession } from '@/lib/pricing';
+import { sendSubscriptionActivatedEmail } from '@/lib/email';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
@@ -12,12 +13,19 @@ export async function POST(req) {
     const user = await getAuthenticatedUser();
     const body = await req.json().catch(() => ({}));
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, currency } = body;
+    const {
+      razorpay_order_id,
+      razorpay_subscription_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      planId,
+      currency,
+    } = body;
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if ((!razorpay_order_id && !razorpay_subscription_id) || !razorpay_payment_id || !razorpay_signature) {
       throw new AppError(
         ErrorCategories.VALIDATION_ERROR,
-        'Missing required payment verification parameters (razorpay_order_id, razorpay_payment_id, razorpay_signature).',
+        'Missing required payment verification parameters.',
         400
       );
     }
@@ -25,6 +33,7 @@ export async function POST(req) {
     // Step 3: Verify HMAC-SHA256 signature
     const isValid = verifyPaymentSignature({
       orderId: razorpay_order_id,
+      subscriptionId: razorpay_subscription_id,
       paymentId: razorpay_payment_id,
       signature: razorpay_signature,
     });
@@ -43,27 +52,27 @@ export async function POST(req) {
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const nowIso = new Date().toISOString();
 
-    // Check if subscription record already exists for user
-    const { data: existingSub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
     const subPayload = {
       user_id: user.id,
       plan_id: planId || planInfo.id,
       plan_name: planInfo.name,
       amount: planInfo.activePricing.amount,
       currency: requestedCurrency,
-      razorpay_order_id: razorpay_order_id,
+      razorpay_order_id: razorpay_order_id || null,
       razorpay_payment_id: razorpay_payment_id,
-      razorpay_subscription_id: razorpay_order_id,
+      razorpay_subscription_id: razorpay_subscription_id || razorpay_order_id || null,
       status: 'active',
       current_period_start: nowIso,
       current_period_end: periodEnd,
       updated_at: nowIso,
     };
+
+    // Check if subscription record already exists for user
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     if (existingSub?.id) {
       await supabaseAdmin

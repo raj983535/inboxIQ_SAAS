@@ -88,28 +88,36 @@ export async function POST(req) {
     });
     const subscriptionId = sub.id;
 
-    // Save/update subscription intent state in database
-    await supabaseAdmin.from('subscriptions').upsert(
-      {
-        user_id: user.id,
-        plan_id: planInfo.id,
-        plan_name: planInfo.name,
-        amount: amount,
-        currency: requestedCurrency,
-        razorpay_subscription_id: subscriptionId,
-        status: 'created',
-        cancel_at_cycle_end: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
+    // Save subscription intent in database
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const subPayload = {
+      user_id: user.id,
+      plan_id: planInfo.id,
+      plan_name: planInfo.name,
+      amount: amount,
+      currency: requestedCurrency,
+      razorpay_subscription_id: subscriptionId,
+      status: 'created',
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingSub?.id) {
+      await supabaseAdmin.from('subscriptions').update(subPayload).eq('id', existingSub.id);
+    } else {
+      await supabaseAdmin.from('subscriptions').insert(subPayload);
+    }
 
     return NextResponse.json({
       success: true,
       subscriptionId,
       amount,
       currency: requestedCurrency,
-      keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+      keyId: (process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '').trim(),
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);

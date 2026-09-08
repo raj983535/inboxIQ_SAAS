@@ -145,35 +145,46 @@ export default function OnboardingPage() {
     const planInfo = getPlanForProfession(profile.profession, 'INR');
 
     try {
-      // 1. Request server to create Razorpay Order
-      const res = await fetch('/api/create-order', {
+      // 1. First attempt to create recurring subscription, fall back to standard order
+      let subData = null;
+      let orderData = null;
+
+      const subRes = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: planInfo.id,
-          amount: planInfo.activePricing.amount,
-          currency: 'INR',
-        }),
+        body: JSON.stringify({ currency: 'INR' }),
       });
 
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error?.message || 'Failed to initialize payment checkout.');
+      if (subRes.ok) {
+        subData = await subRes.json();
+      } else {
+        const orderRes = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planId: planInfo.id,
+            amount: planInfo.activePricing.amount,
+            currency: 'INR',
+          }),
+        });
+        if (!orderRes.ok) {
+          const json = await orderRes.json();
+          throw new Error(json.error?.message || 'Failed to initialize payment checkout.');
+        }
+        orderData = await orderRes.json();
       }
-
-      const { order_id, amount, currency, keyId } = await res.json();
 
       if (typeof window.Razorpay === 'undefined') {
         throw new Error('Razorpay SDK is loading. Please try again in a moment.');
       }
 
+      const activeKey = subData?.keyId || orderData?.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      const activeCurrency = subData?.currency || orderData?.currency || 'INR';
+
       const options = {
-        key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: amount,
-        currency: currency || 'INR',
+        key: activeKey,
         name: 'InboxIQ SaaS',
         description: `${planInfo.name} (${planInfo.activePricing.formatted}/month)`,
-        order_id: order_id,
         handler: async function (response) {
           try {
             setCheckoutLoading(true);
@@ -183,10 +194,11 @@ export default function OnboardingPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
+                razorpay_subscription_id: response.razorpay_subscription_id || subData?.subscriptionId,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 planId: planInfo.id,
-                currency: 'INR',
+                currency: activeCurrency,
               }),
             });
 
@@ -223,6 +235,14 @@ export default function OnboardingPage() {
           color: '#10b981',
         },
       };
+
+      if (subData?.subscriptionId) {
+        options.subscription_id = subData.subscriptionId;
+      } else if (orderData?.order_id) {
+        options.order_id = orderData.order_id;
+        options.amount = orderData.amount;
+        options.currency = activeCurrency;
+      }
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response) {

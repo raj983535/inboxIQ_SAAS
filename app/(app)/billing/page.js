@@ -36,49 +36,60 @@ export default function BillingPage() {
     setSuccessMsg(null);
 
     try {
-      // 1. Request server to create Razorpay Order
-      const res = await fetch('/api/create-order', {
+      // 1. First attempt to create recurring subscription, fall back to standard order
+      let subData = null;
+      let orderData = null;
+
+      const subRes = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: planInfo.id,
-          amount: planInfo.activePricing.amount,
-          currency: currency,
-        }),
+        body: JSON.stringify({ currency }),
       });
 
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error?.message || 'Failed to initialize payment order.');
+      if (subRes.ok) {
+        subData = await subRes.json();
+      } else {
+        const orderRes = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planId: planInfo.id,
+            amount: planInfo.activePricing.amount,
+            currency: currency,
+          }),
+        });
+        if (!orderRes.ok) {
+          const json = await orderRes.json();
+          throw new Error(json.error?.message || 'Failed to initialize payment.');
+        }
+        orderData = await orderRes.json();
       }
 
-      const { order_id, amount, currency: serverCurrency, keyId } = await res.json();
-
-      // 2. Open Razorpay Standard Checkout Modal
       if (typeof window.Razorpay === 'undefined') {
         throw new Error('Razorpay SDK is still loading. Please try again in a few seconds.');
       }
 
+      const activeKey = subData?.keyId || orderData?.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      const activeCurrency = subData?.currency || orderData?.currency || currency;
+
       const options = {
-        key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: amount,
-        currency: serverCurrency || currency,
+        key: activeKey,
         name: 'InboxIQ SaaS',
         description: `${planInfo.name} (${planInfo.activePricing.formatted}${planInfo.activePricing.period})`,
-        order_id: order_id,
         handler: async function (response) {
           try {
             setCheckoutLoading(true);
-            // 3. Verify payment signature on backend
+            // 2. Verify payment signature on backend
             const verifyRes = await fetch('/api/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
+                razorpay_subscription_id: response.razorpay_subscription_id || subData?.subscriptionId,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 planId: planInfo.id,
-                currency: serverCurrency || currency,
+                currency: activeCurrency,
               }),
             });
 
@@ -87,7 +98,7 @@ export default function BillingPage() {
               throw new Error(verifyJson.error?.message || 'Payment signature verification failed.');
             }
 
-            setSuccessMsg('Payment verified successfully! Your monthly subscription is now active.');
+            setSuccessMsg('Payment verified successfully! Your recurring monthly subscription is now active.');
             await refreshAccount();
           } catch (verr) {
             setErrorMsg(verr.message);
@@ -108,6 +119,14 @@ export default function BillingPage() {
           color: '#10b981',
         },
       };
+
+      if (subData?.subscriptionId) {
+        options.subscription_id = subData.subscriptionId;
+      } else if (orderData?.order_id) {
+        options.order_id = orderData.order_id;
+        options.amount = orderData.amount;
+        options.currency = activeCurrency;
+      }
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response) {
