@@ -33,10 +33,11 @@ export default function BillingPage() {
   const handleSubscribe = async () => {
     setCheckoutLoading(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
 
     try {
-      // 1. Request server to create Razorpay subscription/order with profession plan
-      const res = await fetch('/api/create-subscription', {
+      // 1. Request server to create Razorpay Order
+      const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,25 +49,56 @@ export default function BillingPage() {
 
       if (!res.ok) {
         const json = await res.json();
-        throw new Error(json.error?.message || 'Failed to initialize subscription checkout.');
+        throw new Error(json.error?.message || 'Failed to initialize payment order.');
       }
 
-      const { subscriptionId, amount, currency: serverCurrency, keyId } = await res.json();
+      const { order_id, amount, currency: serverCurrency, keyId } = await res.json();
 
-      // 2. Open Razorpay Modal
+      // 2. Open Razorpay Standard Checkout Modal
       if (typeof window.Razorpay === 'undefined') {
         throw new Error('Razorpay SDK is still loading. Please try again in a few seconds.');
       }
 
       const options = {
         key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        subscription_id: subscriptionId,
+        amount: amount,
+        currency: serverCurrency || currency,
         name: 'InboxIQ SaaS',
         description: `${planInfo.name} (${planInfo.activePricing.formatted}${planInfo.activePricing.period})`,
-        currency: serverCurrency || currency,
+        order_id: order_id,
         handler: async function (response) {
-          setSuccessMsg('Payment received! Your subscription will be activated automatically via server verification.');
-          setTimeout(() => refreshAccount(), 2500);
+          try {
+            setCheckoutLoading(true);
+            // 3. Verify payment signature on backend
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planId: planInfo.id,
+                currency: serverCurrency || currency,
+              }),
+            });
+
+            const verifyJson = await verifyRes.json();
+            if (!verifyRes.ok) {
+              throw new Error(verifyJson.error?.message || 'Payment signature verification failed.');
+            }
+
+            setSuccessMsg('Payment verified successfully! Your monthly subscription is now active.');
+            await refreshAccount();
+          } catch (verr) {
+            setErrorMsg(verr.message);
+          } finally {
+            setCheckoutLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setCheckoutLoading(false);
+          },
         },
         prefill: {
           name: user?.name || '',
@@ -78,10 +110,13 @@ export default function BillingPage() {
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setErrorMsg(`Payment failed: ${response.error?.description || 'Transaction declined.'}`);
+        setCheckoutLoading(false);
+      });
       rzp.open();
     } catch (err) {
       setErrorMsg(err.message);
-    } finally {
       setCheckoutLoading(false);
     }
   };

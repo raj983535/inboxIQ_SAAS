@@ -137,7 +137,7 @@ export default function OnboardingPage() {
     }
   };
 
-  // STEP 3: Razorpay Subscription Checkout
+  // STEP 3: Razorpay Standard Checkout & Verification
   const handleSubscribe = async () => {
     setCheckoutLoading(true);
     setError(null);
@@ -145,20 +145,23 @@ export default function OnboardingPage() {
     const planInfo = getPlanForProfession(profile.profession, 'INR');
 
     try {
-      const res = await fetch('/api/create-subscription', {
+      // 1. Request server to create Razorpay Order
+      const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          planId: planInfo.id,
+          amount: planInfo.activePricing.amount,
           currency: 'INR',
         }),
       });
 
       if (!res.ok) {
         const json = await res.json();
-        throw new Error(json.error?.message || 'Failed to initialize subscription checkout.');
+        throw new Error(json.error?.message || 'Failed to initialize payment checkout.');
       }
 
-      const { subscriptionId, keyId } = await res.json();
+      const { order_id, amount, currency, keyId } = await res.json();
 
       if (typeof window.Razorpay === 'undefined') {
         throw new Error('Razorpay SDK is loading. Please try again in a moment.');
@@ -166,18 +169,51 @@ export default function OnboardingPage() {
 
       const options = {
         key: keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        subscription_id: subscriptionId,
+        amount: amount,
+        currency: currency || 'INR',
         name: 'InboxIQ SaaS',
         description: `${planInfo.name} (${planInfo.activePricing.formatted}/month)`,
-        currency: 'INR',
+        order_id: order_id,
         handler: async function (response) {
-          // Mark onboarding completed in database
-          await fetch('/api/update-report-settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reportTime, timezone, onboardingCompleted: true }),
-          });
-          setPaymentSuccess(true);
+          try {
+            setCheckoutLoading(true);
+            // 2. Verify payment signature on server
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planId: planInfo.id,
+                currency: 'INR',
+              }),
+            });
+
+            const verifyJson = await verifyRes.json();
+            if (!verifyRes.ok) {
+              throw new Error(verifyJson.error?.message || 'Payment signature verification failed.');
+            }
+
+            // 3. Mark schedule and onboarding settings
+            await fetch('/api/update-report-settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reportTime, timezone, onboardingCompleted: true }),
+            });
+
+            await refreshAccount();
+            setPaymentSuccess(true);
+          } catch (verr) {
+            setError(verr.message);
+          } finally {
+            setCheckoutLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setCheckoutLoading(false);
+          },
         },
         prefill: {
           name: profile.name || userData?.name || '',
@@ -189,10 +225,13 @@ export default function OnboardingPage() {
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setError(`Payment failed: ${response.error?.description || 'Transaction declined.'}`);
+        setCheckoutLoading(false);
+      });
       rzp.open();
     } catch (err) {
       setError(err.message);
-    } finally {
       setCheckoutLoading(false);
     }
   };
