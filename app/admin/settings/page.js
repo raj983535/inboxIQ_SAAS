@@ -36,74 +36,86 @@ export default function AdminSettingsPage() {
       <Card className="bg-neutral-900 border-neutral-800 text-white shadow-xl">
         <form onSubmit={handleSave}>
           <CardHeader>
-            <CardTitle className="text-base">SaaS Business Constraints &amp; Pricing Tiers</CardTitle>
+            <CardTitle className="text-base">SaaS Business Constraints &amp; Active Billing Tiers</CardTitle>
             <CardDescription className="text-neutral-400">Default constraints and active billing tiers enforced across all tenants</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {/* System Parameters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Input
-                  label="Max Gmail Connections Per User"
-                  value={maxSlots}
-                  disabled
-                  helperText="Enforced at UI, API, and Database constraints"
-                  className="bg-neutral-800 border-neutral-700 text-white"
-                />
+              <div className="p-4 rounded-xl bg-neutral-800/60 border border-neutral-700/60 space-y-1">
+                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Max Gmail Connections</div>
+                <div className="text-xl font-bold text-white">2 Mailbox Slots / User</div>
+                <p className="text-[11px] text-neutral-400 pt-1">Enforced at UI, API, and Database constraints</p>
               </div>
-              <div>
-                <Input
-                  label="Briefing Delivery Window"
-                  value={deliveryWindow}
-                  disabled
-                  helperText="Active cron trigger intervals"
-                  className="bg-neutral-800 border-neutral-700 text-white"
-                />
+              <div className="p-4 rounded-xl bg-neutral-800/60 border border-neutral-700/60 space-y-1">
+                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Briefing Delivery Window</div>
+                <div className="text-xl font-bold text-white">06:00 AM – 10:00 AM</div>
+                <p className="text-[11px] text-neutral-400 pt-1">Multi-timezone automated cron trigger intervals</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Input
-                  label="Student / Scholar Tier Pricing"
-                  value={studentPricing}
-                  disabled
-                  helperText="Special accessible academic tier"
-                  className="bg-neutral-800 border-neutral-700 text-white font-semibold text-emerald-400"
-                />
-              </div>
-              <div>
-                <Input
-                  label="Faculty & Professor Tier Pricing"
-                  value={facultyPricing}
-                  disabled
-                  helperText="Standard professional educator tier"
-                  className="bg-neutral-800 border-neutral-700 text-white font-semibold text-emerald-400"
-                />
+            {/* Pricing Tiers */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Active Tenant Subscription Tiers</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Student Tier */}
+                <div className="p-4 rounded-xl bg-neutral-800/80 border border-neutral-700 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-400">Scholar Tier</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold">Active</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-xl font-black text-white">₹99 <span className="text-xs font-normal text-neutral-400">/ mo (INR)</span></div>
+                    <div className="text-sm font-semibold text-neutral-300">$1.99 <span className="text-xs font-normal text-neutral-400">/ mo (USD)</span></div>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 border-t border-neutral-700/60 pt-2">
+                    College students &amp; scholars • 1 Gmail slot
+                  </p>
+                </div>
+
+                {/* Faculty Tier */}
+                <div className="p-4 rounded-xl bg-neutral-800/80 border border-emerald-500/50 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-400">Faculty &amp; Professor</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">Standard</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-xl font-black text-white">₹499 <span className="text-xs font-normal text-neutral-400">/ mo (INR)</span></div>
+                    <div className="text-sm font-semibold text-neutral-300">$6.99 <span className="text-xs font-normal text-neutral-400">/ mo (USD)</span></div>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 border-t border-neutral-700/60 pt-2">
+                    Professors &amp; teachers • 2 Gmail slots
+                  </p>
+                </div>
+
+                {/* Executive Tier */}
+                <div className="p-4 rounded-xl bg-neutral-800/80 border border-neutral-700 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-400">Executive &amp; Pro</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold">Pro</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-xl font-black text-white">₹499 <span className="text-xs font-normal text-neutral-400">/ mo (INR)</span></div>
+                    <div className="text-sm font-semibold text-neutral-300">$6.99 <span className="text-xs font-normal text-neutral-400">/ mo (USD)</span></div>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 border-t border-neutral-700/60 pt-2">
+                    Working professionals &amp; leaders • 2 Gmail slots
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Input
-                  label="Executive & Professional Tier Pricing"
-                  value={othersPricing}
-                  disabled
-                  helperText="Working professionals & enterprise leaders"
-                  className="bg-neutral-800 border-neutral-700 text-white font-semibold text-emerald-400"
-                />
+            {/* Google Drive Archival Settings */}
+            <div className="p-4 rounded-xl bg-neutral-800/60 border border-neutral-700/60 space-y-1">
+              <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Drive PDF Archival Target Folder</div>
+              <div className="text-sm sm:text-base font-bold font-mono text-purple-300 break-all">
+                Google Drive &gt; InboxIQ &gt; Daily Reports
               </div>
-              <div>
-                <Input
-                  label="Drive PDF Archive Target Folder"
-                  value={driveArchival}
-                  disabled
-                  helperText="Default Google Drive PDF folder name"
-                  className="bg-neutral-800 border-neutral-700 text-white"
-                />
-              </div>
+              <p className="text-[11px] text-neutral-400 pt-1">Auto-created for users linking Google Drive in onboarding or settings</p>
             </div>
           </CardContent>
-          <CardFooter className="border-t border-neutral-800 bg-neutral-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <CardFooter className="border-t border-neutral-800 bg-neutral-900/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="text-xs text-neutral-400">System parameters are synced with Razorpay and Supabase policies.</div>
             <Button type="submit" variant="primary" size="sm" className="w-full sm:w-auto">
               <Save className="w-3.5 h-3.5 mr-1" /> Save Parameters

@@ -31,14 +31,14 @@ export default function AdminWorkflowsPage() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
         <div>
-          <h1 className="text-2xl font-bold">n8n Workflow Executions</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">n8n Workflow Executions</h1>
           <p className="text-xs text-neutral-400">
             Monitoring boundary for external n8n automation engine processing runs.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>

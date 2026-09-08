@@ -366,9 +366,9 @@ export default function OnboardingPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between items-center">
-                <span className="text-xs text-neutral-500">Saved securely in your private account.</span>
-                <Button type="submit" variant="primary" loading={loading}>
+              <CardFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <span className="text-xs text-neutral-500 text-center sm:text-left">Saved securely in your private account.</span>
+                <Button type="submit" variant="primary" loading={loading} className="w-full sm:w-auto">
                   Save Profile &amp; Continue <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </CardFooter>
@@ -389,9 +389,9 @@ export default function OnboardingPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Primary Gmail Slot (1 Mailbox for v1) */}
-              <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 shrink-0">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
@@ -403,12 +403,12 @@ export default function OnboardingPage() {
                     </p>
                   </div>
                 </div>
-                <div>
+                <div className="w-full sm:w-auto">
                   {gmail1Connected ? (
                     <Badge variant="success">✓ Connected</Badge>
                   ) : (
-                    <a href="/api/google/connect?type=gmail&slot=1">
-                      <Button variant="primary" size="sm">
+                    <a href="/api/google/connect?type=gmail&slot=1" className="block w-full sm:w-auto">
+                      <Button variant="primary" size="sm" className="w-full sm:w-auto">
                         Connect Primary Gmail
                       </Button>
                     </a>
@@ -417,9 +417,9 @@ export default function OnboardingPage() {
               </div>
 
               {/* Google Drive Slot */}
-              <div className="p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600 shrink-0">
                     <HardDrive className="w-5 h-5" />
                   </div>
                   <div>
@@ -429,12 +429,12 @@ export default function OnboardingPage() {
                     </p>
                   </div>
                 </div>
-                <div>
+                <div className="w-full sm:w-auto">
                   {driveConnected ? (
                     <Badge variant="success">✓ Connected</Badge>
                   ) : (
-                    <a href="/api/google/connect?type=drive">
-                      <Button variant="outline" size="sm">
+                    <a href="/api/google/connect?type=drive" className="block w-full sm:w-auto">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
                         Connect Google Drive
                       </Button>
                     </a>
@@ -447,16 +447,17 @@ export default function OnboardingPage() {
                 <span>Tokens are encrypted with AES-256. Secondary mailbox slot will be available in v2.</span>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between items-center">
-              <Button variant="outline" onClick={() => setStep(1)}>
+            <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <Button variant="outline" onClick={() => setStep(1)} className="w-full sm:w-auto">
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
               <Button
                 variant="primary"
                 disabled={!gmail1Connected}
                 onClick={() => setStep(3)}
+                className="w-full sm:w-auto"
               >
-                Continue to Step 3 (Activate Subscription) <ArrowRight className="w-4 h-4 ml-2" />
+                Continue to Step 3 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>

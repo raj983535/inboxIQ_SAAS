@@ -340,9 +340,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Slot 1 */}
-                <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex items-center justify-between">
+                <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
                       #1
                     </div>
                     <div>
@@ -356,12 +356,12 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <div>
+                  <div className="w-full sm:w-auto">
                     {gmailConnections.find((c) => c.connection_slot === 1 && c.status === 'connected') ? (
                       <Badge variant="success">Active</Badge>
                     ) : (
-                      <a href="/api/google/connect?type=gmail&slot=1">
-                        <Button size="sm" variant="primary">
+                      <a href="/api/google/connect?type=gmail&slot=1" className="block w-full sm:w-auto">
+                        <Button size="sm" variant="primary" className="w-full sm:w-auto">
                           Connect
                         </Button>
                       </a>
@@ -370,9 +370,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Slot 2 */}
-                <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex items-center justify-between">
+                <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center font-bold text-xs">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
                       #2
                     </div>
                     <div>
@@ -386,12 +386,12 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <div>
+                  <div className="w-full sm:w-auto">
                     {gmailConnections.find((c) => c.connection_slot === 2 && c.status === 'connected') ? (
                       <Badge variant="success">Active</Badge>
                     ) : (
-                      <a href="/api/google/connect?type=gmail&slot=2">
-                        <Button size="sm" variant="outline">
+                      <a href="/api/google/connect?type=gmail&slot=2" className="block w-full sm:w-auto">
+                        <Button size="sm" variant="outline" className="w-full sm:w-auto">
                           Connect Slot 2
                         </Button>
                       </a>

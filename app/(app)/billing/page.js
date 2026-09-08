@@ -116,13 +116,13 @@ export default function BillingPage() {
         {/* Currency Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <div>
-            <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Billing Territory</h4>
+            <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Billing Currency</h4>
             <p className="text-xs text-neutral-500">Select currency for your invoice and payment processing</p>
           </div>
-          <div className="inline-flex items-center p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 self-start sm:self-auto">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 w-full sm:w-auto">
             <button
               onClick={() => setCurrency('INR')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all text-center ${
                 currency === 'INR'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'text-neutral-600 dark:text-neutral-400'
@@ -132,7 +132,7 @@ export default function BillingPage() {
             </button>
             <button
               onClick={() => setCurrency('USD')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all text-center ${
                 currency === 'USD'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'text-neutral-600 dark:text-neutral-400'
@@ -144,20 +144,20 @@ export default function BillingPage() {
         </div>
 
         {/* Current Plan Card (Profession Adaptive) */}
-        <Card className="border-emerald-500/40">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="border-emerald-500/40 shadow-lg">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle>{planInfo.name}</CardTitle>
               <CardDescription>{planInfo.target}</CardDescription>
             </div>
-            <Badge variant={isSubscribed ? 'success' : 'warning'}>
+            <Badge variant={isSubscribed ? 'success' : 'warning'} className="self-start sm:self-auto">
               {subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
             </Badge>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
               <div className="space-y-1">
-                <h3 className="text-xl font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
                 <p className="text-xs text-neutral-500">{planInfo.target}</p>
                 {subscription?.current_period_end && (
                   <p className="text-[11px] text-neutral-400">
@@ -165,27 +165,27 @@ export default function BillingPage() {
                   </p>
                 )}
               </div>
-              <div className="text-right">
-                <span className="text-3xl font-extrabold text-neutral-900 dark:text-white">
+              <div className="flex items-baseline gap-1.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-neutral-200 dark:border-neutral-800">
+                <span className="text-2xl sm:text-4xl font-black text-neutral-900 dark:text-white">
                   {planInfo.activePricing.formatted}
                 </span>
-                <span className="text-xs text-neutral-400"> {planInfo.activePricing.period}</span>
+                <span className="text-xs text-neutral-500 font-semibold">{planInfo.activePricing.period}</span>
               </div>
             </div>
 
-            <div className="space-y-2 text-xs text-neutral-600 dark:text-neutral-300">
+            <div className="space-y-2.5 text-xs text-neutral-600 dark:text-neutral-300">
               {planInfo.features.map((feat, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div key={i} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>{feat}</span>
                 </div>
               ))}
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-xs text-neutral-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Monthly recurring payments and renewal reminders are managed securely by Razorpay.</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Monthly recurring payments managed securely by Razorpay.</span>
             </div>
             {!isSubscribed ? (
               <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe} className="w-full sm:w-auto">
