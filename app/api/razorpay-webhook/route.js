@@ -3,7 +3,11 @@ import { verifyRazorpayWebhookSignature } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
-import { sendRenewalConfirmationEmail } from '@/lib/email';
+import {
+  sendRenewalConfirmationEmail,
+  sendSubscriptionCancelledEmail,
+  sendSubscriptionExpiredEmail,
+} from '@/lib/email';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
@@ -75,20 +79,35 @@ export async function POST(req) {
         .eq('razorpay_subscription_id', subscriptionId);
     }
 
-    // 5. Send automated 30-day renewal confirmation email to user
-    if (isCharged && userEmail) {
+    // 5. Send automated email notifications to user based on event
+    if (userEmail) {
       try {
-        await sendRenewalConfirmationEmail({
-          email: userEmail,
-          name: entity.notes?.userName || '',
-          planName: entity.notes?.planName || 'InboxIQ Pro',
-          amount: entity.amount ? Math.round(entity.amount / 100) : 99,
-          currency: entity.currency || 'INR',
-          paymentId: entity.payment_id || entity.id,
-          nextRenewalDate: nextEnd,
-        });
+        if (isCharged) {
+          await sendRenewalConfirmationEmail({
+            email: userEmail,
+            name: entity.notes?.userName || '',
+            planName: entity.notes?.planName || 'InboxIQ Pro',
+            amount: entity.amount ? Math.round(entity.amount / 100) : 99,
+            currency: entity.currency || 'INR',
+            paymentId: entity.payment_id || entity.id,
+            nextRenewalDate: nextEnd,
+          });
+        } else if (event === 'subscription.cancelled') {
+          await sendSubscriptionCancelledEmail({
+            email: userEmail,
+            name: entity.notes?.userName || '',
+            planName: entity.notes?.planName || 'InboxIQ Pro',
+            expiryDate: nextEnd,
+          });
+        } else if (event === 'subscription.completed' || event === 'subscription.expired' || event === 'subscription.halted') {
+          await sendSubscriptionExpiredEmail({
+            email: userEmail,
+            name: entity.notes?.userName || '',
+            planName: entity.notes?.planName || 'InboxIQ Pro',
+          });
+        }
       } catch (mailErr) {
-        console.warn('Renewal email notification notice:', mailErr.message);
+        console.warn('Webhook notification email notice:', mailErr.message);
       }
     }
 
