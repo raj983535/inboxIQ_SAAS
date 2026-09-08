@@ -25,8 +25,21 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Read cached stats immediately
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('inboxiq_cached_admin_stats');
+        if (cached) {
+          setStats(JSON.parse(cached));
+          setLoading(false);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   const fetchStats = async () => {
-    setLoading(true);
+    if (!stats) setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/admin/stats');
@@ -36,6 +49,11 @@ export default function AdminDashboardPage() {
       }
       const data = await res.json();
       setStats(data.stats);
+      try {
+        if (typeof window !== 'undefined' && data.stats) {
+          sessionStorage.setItem('inboxiq_cached_admin_stats', JSON.stringify(data.stats));
+        }
+      } catch (e) {}
     } catch (err) {
       setError(err.message);
     } finally {

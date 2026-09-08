@@ -15,32 +15,42 @@ export async function GET(req) {
     const search = searchParams.get('search');
     const userId = searchParams.get('userId');
 
-    // Single user detail lookup
+    // Single user detail lookup (parallelized with Promise.all)
     if (userId) {
-      const { data: user } = await supabaseAdmin.from('users').select('*').eq('id', userId).single();
-      const { data: settings } = await supabaseAdmin.from('user_settings').select('*').eq('user_id', userId).single();
-      const { data: gmailConnections } = await supabaseAdmin
-        .from('gmail_connections')
-        .select('id, connection_slot, account_email, provider, status, last_connected_at, last_error, created_at')
-        .eq('user_id', userId);
-      const { data: driveConnection } = await supabaseAdmin
-        .from('google_drive_connections')
-        .select('id, account_email, status, inboxiq_folder_id, reports_folder_id, last_connected_at, last_error, created_at')
-        .eq('user_id', userId)
-        .single();
-      const { data: subscription } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', userId).single();
-      const { data: recentReports } = await supabaseAdmin
-        .from('reports')
-        .select('id, report_date, report_type, status, email_delivery_status, drive_upload_status, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      const { data: recentWorkflows } = await supabaseAdmin
-        .from('workflow_executions')
-        .select('id, execution_id, correlation_id, status, started_at, completed_at, duration_ms, emails_processed, error_category, error_message')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const [
+        { data: user },
+        { data: settings },
+        { data: gmailConnections },
+        { data: driveConnection },
+        { data: subscription },
+        { data: recentReports },
+        { data: recentWorkflows },
+      ] = await Promise.all([
+        supabaseAdmin.from('users').select('*').eq('id', userId).maybeSingle(),
+        supabaseAdmin.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
+        supabaseAdmin
+          .from('gmail_connections')
+          .select('id, connection_slot, account_email, provider, status, last_connected_at, last_error, created_at')
+          .eq('user_id', userId),
+        supabaseAdmin
+          .from('google_drive_connections')
+          .select('id, account_email, status, inboxiq_folder_id, reports_folder_id, last_connected_at, last_error, created_at')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabaseAdmin.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
+        supabaseAdmin
+          .from('reports')
+          .select('id, report_date, report_type, status, email_delivery_status, drive_upload_status, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabaseAdmin
+          .from('workflow_executions')
+          .select('id, execution_id, correlation_id, status, started_at, completed_at, duration_ms, emails_processed, error_category, error_message')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ]);
 
       return NextResponse.json({
         success: true,

@@ -204,9 +204,13 @@ export default function BillingPage() {
               <CardTitle>{planInfo.name}</CardTitle>
               <CardDescription>{planInfo.target}</CardDescription>
             </div>
-            <Badge variant={isSubscribed ? 'success' : 'warning'} className="self-start sm:self-auto">
-              {subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
-            </Badge>
+            {loading && !data ? (
+              <span className="inline-block w-16 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+            ) : (
+              <Badge variant={isSubscribed ? 'success' : 'warning'} className="self-start sm:self-auto">
+                {subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
@@ -241,7 +245,9 @@ export default function BillingPage() {
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Monthly recurring payments managed securely by Razorpay.</span>
             </div>
-            {!isSubscribed ? (
+            {loading && !data ? (
+              <span className="inline-block w-32 h-9 bg-neutral-200 dark:bg-neutral-800 rounded-lg animate-pulse" />
+            ) : !isSubscribed ? (
               <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe} className="w-full sm:w-auto">
                 Subscribe for {planInfo.activePricing.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

@@ -59,6 +59,21 @@ export default function AdminLayout({ children }) {
       return;
     }
 
+    // Instant SWR authorization check from cached session
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const role = parsed?.user?.role;
+          if (role === 'admin' || role === 'super_admin') {
+            setIsAdmin(true);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {}
+
     async function checkAdminAuth() {
       try {
         const res = await fetch('/api/account');

@@ -107,7 +107,18 @@ export default function DashboardPage() {
         {error && <Alert variant="danger">{error}</Alert>}
 
         {/* Live Active / Inactive Subscription Notification Section */}
-        {isSubscribed ? (
+        {loading && !data ? (
+          <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100/60 dark:bg-neutral-900/60 animate-pulse flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-neutral-300 dark:bg-neutral-800 shrink-0" />
+              <div className="space-y-2">
+                <div className="h-4 w-48 bg-neutral-300 dark:bg-neutral-800 rounded" />
+                <div className="h-3 w-72 bg-neutral-200 dark:bg-neutral-800/60 rounded" />
+              </div>
+            </div>
+            <div className="h-8 w-24 bg-neutral-300 dark:bg-neutral-800 rounded-lg shrink-0 hidden sm:block" />
+          </div>
+        ) : isSubscribed ? (
           <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
@@ -220,15 +231,23 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-neutral-900 dark:text-white">
-                    {subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
+                    {loading && !data ? (
+                      <span className="inline-block w-20 h-6 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                    ) : (
+                      subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'
+                    )}
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    {isSubscribed ? `${subscription?.plan_name || 'Pro Active'}` : 'Setup Required'}
+                    {loading && !data ? 'Loading...' : isSubscribed ? `${subscription?.plan_name || 'Pro Active'}` : 'Setup Required'}
                   </p>
                 </div>
-                <Badge variant={isSubscribed ? 'success' : 'warning'}>
-                  {isSubscribed ? 'Active' : 'Not Active'}
-                </Badge>
+                {loading && !data ? (
+                  <span className="inline-block w-14 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+                ) : (
+                  <Badge variant={isSubscribed ? 'success' : 'warning'}>
+                    {isSubscribed ? 'Active' : 'Not Active'}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -243,15 +262,23 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-neutral-900 dark:text-white">
-                    {activeGmailCount} / 2
+                    {loading && !data ? (
+                      <span className="inline-block w-14 h-6 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                    ) : (
+                      `${activeGmailCount} / 2`
+                    )}
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    {activeGmailCount === 2 ? 'Both Connected' : activeGmailCount === 1 ? '1 Slot Available' : 'No Mailbox'}
+                    {loading && !data ? 'Checking...' : activeGmailCount === 2 ? 'Both Connected' : activeGmailCount === 1 ? '1 Slot Available' : 'No Mailbox'}
                   </p>
                 </div>
-                <Badge variant={activeGmailCount > 0 ? 'brand' : 'danger'}>
-                  {activeGmailCount > 0 ? 'Connected' : 'Disconnected'}
-                </Badge>
+                {loading && !data ? (
+                  <span className="inline-block w-16 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+                ) : (
+                  <Badge variant={activeGmailCount > 0 ? 'brand' : 'danger'}>
+                    {activeGmailCount > 0 ? 'Connected' : 'Disconnected'}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -266,15 +293,25 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-neutral-900 dark:text-white">
-                    {isDriveConnected ? 'Google Drive' : 'Not Linked'}
+                    {loading && !data ? (
+                      <span className="inline-block w-20 h-6 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                    ) : isDriveConnected ? (
+                      'Google Drive'
+                    ) : (
+                      'Not Linked'
+                    )}
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    {isDriveConnected ? 'InboxIQ / Daily Reports' : 'Connect in Settings'}
+                    {loading && !data ? 'Checking...' : isDriveConnected ? 'InboxIQ / Daily Reports' : 'Connect in Settings'}
                   </p>
                 </div>
-                <Badge variant={isDriveConnected ? 'purple' : 'default'}>
-                  {isDriveConnected ? 'Linked' : 'Not Connected'}
-                </Badge>
+                {loading && !data ? (
+                  <span className="inline-block w-14 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
+                ) : (
+                  <Badge variant={isDriveConnected ? 'purple' : 'default'}>
+                    {isDriveConnected ? 'Linked' : 'Not Connected'}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -289,7 +326,11 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-neutral-900 dark:text-white">
-                    {settings?.report_time || '08:00 AM'}
+                    {loading && !data ? (
+                      <span className="inline-block w-16 h-6 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                    ) : (
+                      settings?.report_time || '08:00 AM'
+                    )}
                   </h3>
                   <p className="text-[11px] text-neutral-400 truncate max-w-[120px]">
                     {settings?.timezone || 'Asia/Kolkata'}
