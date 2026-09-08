@@ -212,9 +212,9 @@ export default function OnboardingPage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <AppTopbar title="Setup Wizard" subtitle="Complete the 3 quick steps to activate your daily intelligence briefing" />
 
-      <div className="p-6 sm:p-10 max-w-3xl mx-auto w-full space-y-8">
+      <div className="p-4 sm:p-8 max-w-3xl mx-auto w-full space-y-6 sm:space-y-8">
         {/* Step Indicator (Interactive) */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {steps.map((s) => {
             const isClickable = s.num === 1 || (s.num === 2 && isProfileDone) || (s.num === 3 && isProfileDone && gmail1Connected);
             return (
@@ -225,7 +225,7 @@ export default function OnboardingPage() {
                   if (isClickable) setStep(s.num);
                 }}
                 disabled={!isClickable}
-                className={`p-3.5 rounded-xl border text-left transition-all ${
+                className={`p-2.5 sm:p-3.5 rounded-xl border text-left transition-all ${
                   step === s.num
                     ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
                     : isClickable
@@ -233,9 +233,9 @@ export default function OnboardingPage() {
                     : 'border-neutral-200 dark:border-neutral-800 opacity-50 cursor-not-allowed'
                 }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <span
-                    className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
+                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs font-bold flex items-center justify-center shrink-0 ${
                       step > s.num
                         ? 'bg-emerald-600 text-white'
                         : step === s.num
@@ -245,9 +245,9 @@ export default function OnboardingPage() {
                   >
                     {step > s.num ? '✓' : s.num}
                   </span>
-                  <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">{s.title}</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-neutral-900 dark:text-white truncate">{s.title}</span>
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 hidden sm:block">{s.desc}</p>
+                <p className="text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 hidden sm:block">{s.desc}</p>
               </button>
             );
           })}

@@ -67,7 +67,7 @@ export default function AdminUserDetailPage() {
   const { user, settings, gmail_connections, drive_connection, subscription, recent_reports, recent_workflows } = data;
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 max-w-6xl mx-auto w-full text-white">
+    <div className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto w-full text-white">
       <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
         <div className="flex items-center gap-3">
           <Link href="/admin/users">

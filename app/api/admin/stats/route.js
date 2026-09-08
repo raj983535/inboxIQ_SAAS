@@ -11,29 +11,34 @@ export async function GET() {
   try {
     await getAuthenticatedAdmin();
 
-    // 1. User stats
-    const { count: totalUsers } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true });
-    const { count: activeUsers } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).eq('status', 'active');
-
-    // 2. Subscription stats
-    const { count: activeSubscriptions } = await supabaseAdmin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active');
-    const { count: inactiveSubscriptions } = await supabaseAdmin.from('subscriptions').select('*', { count: 'exact', head: true }).neq('status', 'active');
-
-    // 3. Connection stats
-    const { count: totalGmailConnections } = await supabaseAdmin.from('gmail_connections').select('*', { count: 'exact', head: true }).eq('status', 'connected');
-    const { count: totalDriveConnections } = await supabaseAdmin.from('google_drive_connections').select('*', { count: 'exact', head: true }).eq('status', 'connected');
-
-    // 4. Report stats
-    const { count: reportsDelivered } = await supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('email_delivery_status', 'delivered');
-    const { count: reportsArchived } = await supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('drive_upload_status', 'uploaded');
-    const { count: reportsFailed } = await supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'failed');
-
-    // 5. Workflow stats
-    const { count: workflowFailed } = await supabaseAdmin.from('workflow_executions').select('*', { count: 'exact', head: true }).eq('status', 'failed');
-    const { count: workflowProcessing } = await supabaseAdmin.from('workflow_executions').select('*', { count: 'exact', head: true }).eq('status', 'processing');
-
-    // 6. Total errors
-    const { count: unresolvedErrors } = await supabaseAdmin.from('system_errors').select('*', { count: 'exact', head: true }).eq('error_status', 'unresolved');
+    // Execute all 12 stats queries in parallel
+    const [
+      { count: totalUsers },
+      { count: activeUsers },
+      { count: activeSubscriptions },
+      { count: inactiveSubscriptions },
+      { count: totalGmailConnections },
+      { count: totalDriveConnections },
+      { count: reportsDelivered },
+      { count: reportsArchived },
+      { count: reportsFailed },
+      { count: workflowFailed },
+      { count: workflowProcessing },
+      { count: unresolvedErrors },
+    ] = await Promise.all([
+      supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabaseAdmin.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabaseAdmin.from('subscriptions').select('*', { count: 'exact', head: true }).neq('status', 'active'),
+      supabaseAdmin.from('gmail_connections').select('*', { count: 'exact', head: true }).eq('status', 'connected'),
+      supabaseAdmin.from('google_drive_connections').select('*', { count: 'exact', head: true }).eq('status', 'connected'),
+      supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('email_delivery_status', 'delivered'),
+      supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('drive_upload_status', 'uploaded'),
+      supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'failed'),
+      supabaseAdmin.from('workflow_executions').select('*', { count: 'exact', head: true }).eq('status', 'failed'),
+      supabaseAdmin.from('workflow_executions').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
+      supabaseAdmin.from('system_errors').select('*', { count: 'exact', head: true }).eq('error_status', 'unresolved'),
+    ]);
 
     return NextResponse.json({
       success: true,

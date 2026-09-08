@@ -99,12 +99,12 @@ export default function DashboardPage() {
         subtitle={`${currentProf.title} • Next briefing @ ${settings?.report_time || '08:00 AM'}`}
       />
 
-      <div className="p-6 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
         {error && <Alert variant="danger">{error}</Alert>}
 
         {/* Live Active / Inactive Subscription Notification Section */}
         {isSubscribed ? (
-          <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
                 <CheckCircle2 className="w-5 h-5" />
@@ -121,16 +121,16 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <div className="shrink-0">
-              <Link href="/billing">
-                <Button size="sm" variant="outline" className="border-emerald-600/40 text-emerald-800 dark:text-emerald-300 text-xs">
+            <div className="shrink-0 w-full sm:w-auto">
+              <Link href="/billing" className="block">
+                <Button size="sm" variant="outline" className="w-full sm:w-auto border-emerald-600/40 text-emerald-800 dark:text-emerald-300 text-xs">
                   Manage Plan
                 </Button>
               </Link>
             </div>
           </div>
         ) : (
-          <div className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
                 <AlertCircle className="w-5 h-5" />
@@ -147,9 +147,9 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <div className="shrink-0">
-              <Link href="/onboarding">
-                <Button size="sm" variant="primary" className="text-xs">
+            <div className="shrink-0 w-full sm:w-auto">
+              <Link href="/onboarding" className="block">
+                <Button size="sm" variant="primary" className="w-full sm:w-auto text-xs">
                   Activate Subscription <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </Link>

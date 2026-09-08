@@ -72,7 +72,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#070a10] flex flex-col justify-between shrink-0 min-h-screen">
+    <aside className="hidden lg:flex w-64 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#070a10] flex-col justify-between shrink-0 min-h-screen sticky top-0 h-screen">
       <div>
         {/* Logo */}
         <div className="h-16 px-6 border-b border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between">

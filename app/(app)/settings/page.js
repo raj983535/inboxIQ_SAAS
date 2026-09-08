@@ -161,7 +161,7 @@ export default function SettingsPage() {
     <div className="flex flex-col min-h-screen">
       <AppTopbar title="Account &amp; Pipeline Settings" subtitle="Manage profile, schedule, and connected Google accounts" />
 
-      <div className="p-6 sm:p-8 max-w-4xl mx-auto w-full space-y-8">
+      <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full space-y-6 sm:space-y-8">
         {successMsg && <Alert variant="success">{successMsg}</Alert>}
         {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
 

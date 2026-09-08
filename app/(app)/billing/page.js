@@ -109,17 +109,17 @@ export default function BillingPage() {
 
       <AppTopbar title="Subscription &amp; Billing" subtitle="Manage your active plan and payment history" />
 
-      <div className="p-6 sm:p-8 max-w-4xl mx-auto w-full space-y-8">
+      <div className="p-4 sm:p-8 max-w-4xl mx-auto w-full space-y-6 sm:space-y-8">
         {successMsg && <Alert variant="success">{successMsg}</Alert>}
         {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
 
         {/* Currency Switcher */}
-        <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <div>
             <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Billing Territory</h4>
             <p className="text-xs text-neutral-500">Select currency for your invoice and payment processing</p>
           </div>
-          <div className="inline-flex items-center p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+          <div className="inline-flex items-center p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 self-start sm:self-auto">
             <button
               onClick={() => setCurrency('INR')}
               className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
@@ -188,11 +188,11 @@ export default function BillingPage() {
               <span>Monthly recurring payments and renewal reminders are managed securely by Razorpay.</span>
             </div>
             {!isSubscribed ? (
-              <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe}>
+              <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe} className="w-full sm:w-auto">
                 Subscribe for {planInfo.activePricing.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button size="sm" variant="outline" loading={checkoutLoading} onClick={handleCancel} className="text-rose-600 hover:text-rose-700">
+              <Button size="sm" variant="outline" loading={checkoutLoading} onClick={handleCancel} className="w-full sm:w-auto text-rose-600 hover:text-rose-700">
                 Cancel automatic renewal
               </Button>
             )}

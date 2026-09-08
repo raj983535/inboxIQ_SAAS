@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
   }, []);
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 max-w-7xl mx-auto w-full">
+    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto w-full">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
         <div>

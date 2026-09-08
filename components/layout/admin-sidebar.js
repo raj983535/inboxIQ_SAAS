@@ -80,7 +80,7 @@ export function AdminSidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-900 text-neutral-300 flex flex-col justify-between shrink-0 min-h-screen">
+    <aside className="hidden lg:flex w-64 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-900 text-neutral-300 flex-col justify-between shrink-0 min-h-screen sticky top-0 h-screen">
       <div>
         {/* Admin Header */}
         <div className="h-16 px-6 border-b border-neutral-800 flex items-center justify-between">

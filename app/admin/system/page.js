@@ -37,7 +37,7 @@ export default function AdminSystemPage() {
   };
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 max-w-7xl mx-auto w-full text-white">
+    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto w-full text-white">
       <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
         <div>
           <h1 className="text-2xl font-bold">Platform &amp; Integration Health</h1>
