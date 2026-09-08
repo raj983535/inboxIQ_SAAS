@@ -50,50 +50,28 @@ export async function POST(req) {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    const subPayload = {
+      user_id: user.id,
+      plan_id: planId || planInfo.id,
+      plan_name: planInfo.name,
+      amount: planInfo.activePricing.amount,
+      currency: requestedCurrency,
+      razorpay_order_id: razorpay_order_id,
+      razorpay_payment_id: razorpay_payment_id,
+      razorpay_subscription_id: razorpay_order_id,
+      status: 'active',
+      current_period_start: nowIso,
+      current_period_end: periodEnd,
+      updated_at: nowIso,
+    };
+
     if (existingSub?.id) {
-      const { error: updateErr } = await supabaseAdmin
+      await supabaseAdmin
         .from('subscriptions')
-        .update({
-          plan_id: planId || planInfo.id,
-          plan_name: planInfo.name,
-          amount: planInfo.activePricing.amount,
-          currency: requestedCurrency,
-          razorpay_order_id: razorpay_order_id,
-          razorpay_payment_id: razorpay_payment_id,
-          razorpay_subscription_id: razorpay_order_id,
-          status: 'active',
-          current_period_start: nowIso,
-          current_period_end: periodEnd,
-          cancel_at_cycle_end: false,
-          updated_at: nowIso,
-        })
+        .update(subPayload)
         .eq('id', existingSub.id);
-
-      if (updateErr) {
-        console.error('Subscription update failed:', updateErr);
-      }
     } else {
-      const { error: insertErr } = await supabaseAdmin
-        .from('subscriptions')
-        .insert({
-          user_id: user.id,
-          plan_id: planId || planInfo.id,
-          plan_name: planInfo.name,
-          amount: planInfo.activePricing.amount,
-          currency: requestedCurrency,
-          razorpay_order_id: razorpay_order_id,
-          razorpay_payment_id: razorpay_payment_id,
-          razorpay_subscription_id: razorpay_order_id,
-          status: 'active',
-          current_period_start: nowIso,
-          current_period_end: periodEnd,
-          cancel_at_cycle_end: false,
-          updated_at: nowIso,
-        });
-
-      if (insertErr) {
-        console.error('Subscription insert failed:', insertErr);
-      }
+      await supabaseAdmin.from('subscriptions').insert(subPayload);
     }
 
     // Mark onboarding completed in user_settings

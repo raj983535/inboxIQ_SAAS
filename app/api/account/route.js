@@ -59,34 +59,25 @@ export async function GET() {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      const subPayload = {
+        user_id: user.id,
+        plan_id: planId,
+        plan_name: planName,
+        amount: amount,
+        currency: currency,
+        status: 'active',
+        current_period_start: nowIso,
+        current_period_end: periodEnd,
+        updated_at: nowIso,
+      };
+
       if (existingSub?.id) {
         await supabaseAdmin
           .from('subscriptions')
-          .update({
-            plan_id: planId,
-            plan_name: planName,
-            amount: amount,
-            currency: currency,
-            status: 'active',
-            current_period_start: nowIso,
-            current_period_end: periodEnd,
-            cancel_at_cycle_end: false,
-            updated_at: nowIso,
-          })
+          .update(subPayload)
           .eq('id', existingSub.id);
       } else {
-        await supabaseAdmin.from('subscriptions').insert({
-          user_id: user.id,
-          plan_id: planId,
-          plan_name: planName,
-          amount: amount,
-          currency: currency,
-          status: 'active',
-          current_period_start: nowIso,
-          current_period_end: periodEnd,
-          cancel_at_cycle_end: false,
-          updated_at: nowIso,
-        });
+        await supabaseAdmin.from('subscriptions').insert(subPayload);
       }
 
       activeSub = {
