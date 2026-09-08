@@ -47,20 +47,41 @@ export async function POST(req) {
     });
 
     // Record order intent in subscriptions table
-    await supabaseAdmin.from('subscriptions').upsert(
-      {
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingSub?.id) {
+      await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          plan_id: planInfo.id,
+          plan_name: planInfo.name,
+          amount: Math.round(amountInPaise / 100),
+          currency: requestedCurrency,
+          razorpay_order_id: order.id,
+          razorpay_subscription_id: order.id,
+          status: 'created',
+          cancel_at_cycle_end: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingSub.id);
+    } else {
+      await supabaseAdmin.from('subscriptions').insert({
         user_id: user.id,
         plan_id: planInfo.id,
         plan_name: planInfo.name,
         amount: Math.round(amountInPaise / 100),
         currency: requestedCurrency,
+        razorpay_order_id: order.id,
         razorpay_subscription_id: order.id,
         status: 'created',
         cancel_at_cycle_end: false,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
+      });
+    }
 
     return NextResponse.json({
       success: true,

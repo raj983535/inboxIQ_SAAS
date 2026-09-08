@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/clerk/auth';
+import { getAuthenticatedUser, isAuthorizedAdminEmail } from '@/lib/clerk/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   const correlationId = generateCorrelationId();
@@ -40,7 +41,65 @@ export async function GET() {
         .limit(5),
     ]);
 
-    const activeSub = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+    let activeSub = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+
+    // If subscription is not active, but user is authorized Admin / Owner (or has paid):
+    const isOwnerOrAdmin = user.role === 'admin' || user.role === 'super_admin' || isAuthorizedAdminEmail(user.email);
+    if ((!activeSub || activeSub.status !== 'active') && isOwnerOrAdmin) {
+      const nowIso = new Date().toISOString();
+      const periodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const planId = user.profession === 'student' ? 'plan_student_pro' : 'plan_faculty_pro';
+      const planName = user.profession === 'student' ? 'InboxIQ Student' : 'InboxIQ Pro';
+      const amount = user.profession === 'student' ? (user.country === 'India' ? 99 : 4) : (user.country === 'India' ? 499 : 8);
+      const currency = user.country === 'India' ? 'INR' : 'USD';
+
+      const { data: existingSub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingSub?.id) {
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({
+            plan_id: planId,
+            plan_name: planName,
+            amount: amount,
+            currency: currency,
+            status: 'active',
+            current_period_start: nowIso,
+            current_period_end: periodEnd,
+            cancel_at_cycle_end: false,
+            updated_at: nowIso,
+          })
+          .eq('id', existingSub.id);
+      } else {
+        await supabaseAdmin.from('subscriptions').insert({
+          user_id: user.id,
+          plan_id: planId,
+          plan_name: planName,
+          amount: amount,
+          currency: currency,
+          status: 'active',
+          current_period_start: nowIso,
+          current_period_end: periodEnd,
+          cancel_at_cycle_end: false,
+          updated_at: nowIso,
+        });
+      }
+
+      activeSub = {
+        id: existingSub?.id || 'admin_sub',
+        plan_id: planId,
+        plan_name: planName,
+        amount: amount,
+        currency: currency,
+        status: 'active',
+        current_period_start: nowIso,
+        current_period_end: periodEnd,
+      };
+    }
 
     return NextResponse.json(
       {

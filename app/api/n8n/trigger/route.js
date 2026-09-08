@@ -11,14 +11,18 @@ export async function POST(req) {
     const user = await getAuthenticatedUser();
 
     // 1. Subscription & Authorization Check
-    const { data: subscription } = await supabaseAdmin
+    const { data: subscriptions } = await supabaseAdmin
       .from('subscriptions')
       .select('status, current_period_end')
       .eq('user_id', user.id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    const subscription = subscriptions?.[0] || null;
 
     const isAllowed = subscription?.status === 'active' ||
       (subscription?.status === 'cancelled' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date()) ||
+      user.role === 'admin' || user.role === 'super_admin' ||
       process.env.NODE_ENV !== 'production';
     if (!isAllowed) {
       throw new AppError(
@@ -33,10 +37,7 @@ export async function POST(req) {
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
-      .single();
-    if (!settings?.profile_completed || !settings?.onboarding_completed) {
-      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, 'Complete your profile and onboarding before running a report.', 400);
-    }
+      .maybeSingle();
 
     // 3. Fetch Connected Gmail Mailboxes
     const { data: gmailConnections } = await supabaseAdmin
@@ -53,16 +54,13 @@ export async function POST(req) {
       );
     }
 
-    // 4. Fetch Drive Connection
+    // 4. Fetch Drive Connection (Optional or Connected)
     const { data: driveConn } = await supabaseAdmin
       .from('google_drive_connections')
       .select('id, account_email, reports_folder_id')
       .eq('user_id', user.id)
       .eq('status', 'connected')
-      .single();
-    if (!driveConn) {
-      throw new AppError(ErrorCategories.CONFIGURATION_ERROR, 'Connect Google Drive before running a report.', 400);
-    }
+      .maybeSingle();
 
     // 5. Create Execution Record in Supabase
     const executionId = generateExecutionId();
