@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { SignIn } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldAlert, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
@@ -38,6 +39,7 @@ export default function AdminLoginPage() {
           signUpUrl="/sign-up"
           afterSignInUrl="/admin/dashboard"
           appearance={{
+            baseTheme: dark,
             elements: {
               rootBox: 'mx-auto w-full max-w-md',
               card: 'bg-neutral-900 border border-neutral-800 shadow-2xl rounded-2xl text-white',
