@@ -8,36 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { AppTopbar } from '@/components/layout/app-topbar';
+import { useAccount } from '@/context/account-context';
 import { getPlanForProfession, CURRENCIES } from '@/lib/pricing';
 
 export default function BillingPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, refreshAccount } = useAccount();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   const [currency, setCurrency] = useState('INR'); // 'INR' | 'USD'
 
-  const loadSubscription = async () => {
-    try {
-      const res = await fetch('/api/account');
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        if (json.user?.country && json.user.country !== 'India') {
-          setCurrency('USD');
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load subscription:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadSubscription();
-  }, []);
+    if (data?.user?.country && data.user.country !== 'India') {
+      setCurrency('USD');
+    }
+  }, [data]);
 
   const user = data?.user;
   const profession = user?.profession || 'professor_teacher';
@@ -81,7 +66,7 @@ export default function BillingPage() {
         currency: serverCurrency || currency,
         handler: async function (response) {
           setSuccessMsg('Payment received! Your subscription will be activated automatically via server verification.');
-          setTimeout(() => loadSubscription(), 2500);
+          setTimeout(() => refreshAccount(), 2500);
         },
         prefill: {
           name: user?.name || '',
@@ -110,7 +95,7 @@ export default function BillingPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || 'Unable to cancel the subscription.');
       setSuccessMsg(json.message);
-      await loadSubscription();
+      await refreshAccount();
     } catch (err) {
       setErrorMsg(err.message);
     } finally {

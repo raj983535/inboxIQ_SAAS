@@ -11,41 +11,33 @@ export async function GET() {
   try {
     const user = await getAuthenticatedUser();
 
-    // Fetch user settings
-    const { data: settings } = await supabaseAdmin
-      .from('user_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
-    // Fetch Gmail connections (EXCLUDE encrypted_refresh_token)
-    const { data: gmailConnections } = await supabaseAdmin
-      .from('gmail_connections')
-      .select('id, account_email, provider, connection_name, connection_slot, status, last_connected_at, last_error, created_at')
-      .eq('user_id', user.id)
-      .order('connection_slot', { ascending: true });
-
-    // Fetch Google Drive connection
-    const { data: driveConnection } = await supabaseAdmin
-      .from('google_drive_connections')
-      .select('id, account_email, status, inboxiq_folder_id, reports_folder_id, last_connected_at, last_error, created_at')
-      .eq('user_id', user.id)
-      .single();
-
-    // Fetch subscription status
-    const { data: subscription } = await supabaseAdmin
-      .from('subscriptions')
-      .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end')
-      .eq('user_id', user.id)
-      .single();
-
-    // Fetch recent reports metadata
-    const { data: recentReports } = await supabaseAdmin
-      .from('reports')
-      .select('id, report_date, report_type, status, email_delivery_status, drive_upload_status, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
+    // Fetch user settings, connections, subscription, and recent reports in parallel
+    const [
+      { data: settings },
+      { data: gmailConnections },
+      { data: driveConnection },
+      { data: subscription },
+      { data: recentReports }
+    ] = await Promise.all([
+      supabaseAdmin.from('user_settings').select('*').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('gmail_connections')
+        .select('id, account_email, provider, connection_name, connection_slot, status, last_connected_at, last_error, created_at')
+        .eq('user_id', user.id)
+        .order('connection_slot', { ascending: true }),
+      supabaseAdmin.from('google_drive_connections')
+        .select('id, account_email, status, inboxiq_folder_id, reports_folder_id, last_connected_at, last_error, created_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabaseAdmin.from('subscriptions')
+        .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabaseAdmin.from('reports')
+        .select('id, report_date, report_type, status, email_delivery_status, drive_upload_status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
 
     return NextResponse.json({
       success: true,

@@ -28,31 +28,10 @@ import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { AppTopbar } from '@/components/layout/app-topbar';
 
+import { useAccount } from '@/context/account-context';
+
 export default function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/account');
-      if (!res.ok) {
-        throw new Error('Failed to load dashboard operational state.');
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { data, loading, error, refreshAccount } = useAccount();
 
   const user = data?.user;
   const settings = data?.settings;

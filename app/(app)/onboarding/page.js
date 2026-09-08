@@ -21,15 +21,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
+import { useAccount } from '@/context/account-context';
 import { IANA_TIMEZONES } from '@/lib/utils';
 import { AppTopbar } from '@/components/layout/app-topbar';
 import { getPlanForProfession } from '@/lib/pricing';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // Step 1: Profile | Step 2: Connect | Step 3: Payment
+  const { data: accountData, refreshAccount } = useAccount();
+  const [step, setStepState] = useState(1); // Step 1: Profile | Step 2: Connect | Step 3: Payment
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -48,59 +49,69 @@ export default function OnboardingPage() {
     country: 'India',
   });
 
-  // Fetch initial connection & profile status from Supabase
-  const loadStatus = async () => {
-    try {
-      const res = await fetch('/api/account');
-      if (res.ok) {
-        const data = await res.json();
-        setUserData(data.user);
-
-        if (data.user) {
-          setProfile({
-            name: data.user.name || '',
-            gender: data.user.gender || 'male',
-            profession: data.user.profession || 'professor_teacher',
-            country: data.user.country || 'India',
-          });
-        }
-
-        if (data.settings) {
-          setReportTime(data.settings.report_time || '08:00');
-          setTimezone(data.settings.timezone || 'Asia/Kolkata');
-        }
-
-        const hasGmail = (data.gmail_connections || []).some((c) => c.connection_slot === 1 && c.status === 'connected');
-        const hasDrive = data.drive_connection?.status === 'connected';
-        const isProfileDone = Boolean(data.settings?.profile_completed);
-        const isSubscribed = data.subscription?.status === 'active';
-
-        setGmailAccounts(data.gmail_connections || []);
-        setGmail1Connected(hasGmail);
-        setDriveConnected(hasDrive);
-
-        // Deterministic Step Placement based on persisted Supabase data
-        if (isSubscribed) {
-          // Already subscribed -> route straight to dashboard
-          router.push('/dashboard');
-        } else if (hasGmail && isProfileDone) {
-          setStep(3); // Move to Payment step
-        } else if (isProfileDone) {
-          setStep(2); // Move to Connect step
-        } else {
-          setStep(1); // Start at Profile setup
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load initial account data:', err);
-    } finally {
-      setInitialLoading(false);
+  const setStep = (newStep) => {
+    setStepState(newStep);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('inboxiq_onboarding_active_step', String(newStep));
     }
   };
 
+  // Sync state from AccountContext data
   useEffect(() => {
-    loadStatus();
-  }, []);
+    if (!accountData) return;
+
+    const user = accountData.user;
+    const settings = accountData.settings;
+    const gmailConnections = accountData.gmail_connections || [];
+    const driveConnection = accountData.drive_connection;
+    const subscription = accountData.subscription;
+
+    setUserData(user);
+
+    if (user) {
+      setProfile((prev) => ({
+        name: prev.name || user.name || '',
+        gender: user.gender || prev.gender || 'male',
+        profession: user.profession || prev.profession || 'professor_teacher',
+        country: user.country || prev.country || 'India',
+      }));
+    }
+
+    if (settings) {
+      if (settings.report_time) setReportTime(settings.report_time);
+      if (settings.timezone) setTimezone(settings.timezone);
+    }
+
+    const hasGmail = gmailConnections.some((c) => c.connection_slot === 1 && c.status === 'connected');
+    const hasDrive = driveConnection?.status === 'connected';
+    const isProfileDone = Boolean(settings?.profile_completed || (user?.name && user?.profession));
+    const isSubscribed = subscription?.status === 'active';
+
+    setGmailAccounts(gmailConnections);
+    setGmail1Connected(hasGmail);
+    setDriveConnected(hasDrive);
+
+    if (isSubscribed) {
+      router.push('/dashboard');
+      return;
+    }
+
+    // Determine Step Placement with localStorage memory
+    const savedStepStr = typeof window !== 'undefined' ? localStorage.getItem('inboxiq_onboarding_active_step') : null;
+    const savedStep = savedStepStr ? parseInt(savedStepStr, 10) : null;
+
+    if (savedStep === 3 && (hasGmail || isProfileDone)) {
+      setStepState(3);
+    } else if (savedStep === 2 && isProfileDone) {
+      setStepState(2);
+    } else if (hasGmail && isProfileDone) {
+      setStepState(3);
+    } else if (isProfileDone) {
+      setStepState(2);
+    } else {
+      setStepState(1);
+    }
+  }, [accountData, router]);
 
   // STEP 1: Save Profile to Supabase
   const handleSaveProfile = async (e) => {
@@ -117,6 +128,7 @@ export default function OnboardingPage() {
         const data = await res.json();
         throw new Error(data.error?.message || 'Unable to save your profile.');
       }
+      await refreshAccount();
       setStep(2);
     } catch (err) {
       setError(err.message);
@@ -193,16 +205,7 @@ export default function OnboardingPage() {
 
   const planInfo = getPlanForProfession(profile.profession, 'INR');
 
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#080c14]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-neutral-500">Loading your setup configuration...</p>
-        </div>
-      </div>
-    );
-  }
+  const isProfileDone = Boolean(userData?.name && userData?.profession);
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-[#080c14]">
@@ -210,36 +213,44 @@ export default function OnboardingPage() {
       <AppTopbar title="Setup Wizard" subtitle="Complete the 3 quick steps to activate your daily intelligence briefing" />
 
       <div className="p-6 sm:p-10 max-w-3xl mx-auto w-full space-y-8">
-        {/* Step Indicator */}
+        {/* Step Indicator (Interactive) */}
         <div className="grid grid-cols-3 gap-3">
-          {steps.map((s) => (
-            <div
-              key={s.num}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
-                step === s.num
-                  ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
-                  : step > s.num
-                  ? 'border-emerald-200 dark:border-emerald-900 bg-neutral-50 dark:bg-neutral-900/40 text-neutral-400'
-                  : 'border-neutral-200 dark:border-neutral-800 opacity-60'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
-                    step > s.num
-                      ? 'bg-emerald-600 text-white'
-                      : step === s.num
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                  }`}
-                >
-                  {step > s.num ? '✓' : s.num}
-                </span>
-                <span className="text-xs font-bold text-neutral-900 dark:text-white">{s.title}</span>
-              </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 hidden sm:block">{s.desc}</p>
-            </div>
-          ))}
+          {steps.map((s) => {
+            const isClickable = s.num === 1 || (s.num === 2 && isProfileDone) || (s.num === 3 && isProfileDone && gmail1Connected);
+            return (
+              <button
+                key={s.num}
+                type="button"
+                onClick={() => {
+                  if (isClickable) setStep(s.num);
+                }}
+                disabled={!isClickable}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  step === s.num
+                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
+                    : isClickable
+                    ? 'border-neutral-200 dark:border-neutral-800 hover:border-emerald-500/40 bg-white dark:bg-neutral-900/60 cursor-pointer'
+                    : 'border-neutral-200 dark:border-neutral-800 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
+                      step > s.num
+                        ? 'bg-emerald-600 text-white'
+                        : step === s.num
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    {step > s.num ? '✓' : s.num}
+                  </span>
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">{s.title}</span>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 hidden sm:block">{s.desc}</p>
+              </button>
+            );
+          })}
         </div>
 
         {error && <Alert variant="danger">{error}</Alert>}

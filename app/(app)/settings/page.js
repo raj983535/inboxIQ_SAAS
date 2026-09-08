@@ -23,9 +23,10 @@ import { Modal } from '@/components/ui/modal';
 import { IANA_TIMEZONES } from '@/lib/utils';
 import { AppTopbar } from '@/components/layout/app-topbar';
 
+import { useAccount } from '@/context/account-context';
+
 export default function SettingsPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, refreshAccount } = useAccount();
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -45,34 +46,19 @@ export default function SettingsPage() {
   // Disconnect modal state
   const [disconnectModal, setDisconnectModal] = useState({ open: false, type: null, id: null, email: '' });
 
-  const loadData = async () => {
-    try {
-      const res = await fetch('/api/account');
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        if (json.user) {
-          setName(json.user.name || '');
-          setEmail(json.user.email || '');
-          setProfession(json.user.profession || 'professor_teacher');
-          setCountry(json.user.country || 'India');
-          setGender(json.user.gender || 'male');
-        }
-        if (json.settings) {
-          setReportTime(json.settings.report_time || '08:00');
-          setTimezone(json.settings.timezone || 'Asia/Kolkata');
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load settings:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadData();
-  }, []);
+    if (data?.user) {
+      setName(data.user.name || '');
+      setEmail(data.user.email || '');
+      setProfession(data.user.profession || 'professor_teacher');
+      setCountry(data.user.country || 'India');
+      setGender(data.user.gender || 'male');
+    }
+    if (data?.settings) {
+      setReportTime(data.settings.report_time || '08:00');
+      setTimezone(data.settings.timezone || 'Asia/Kolkata');
+    }
+  }, [data]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -93,7 +79,7 @@ export default function SettingsPage() {
       }
 
       setSuccessMsg('Profile updated successfully.');
-      await loadData();
+      await refreshAccount();
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(err.message);
@@ -121,6 +107,7 @@ export default function SettingsPage() {
       }
 
       setSuccessMsg('Report schedule and timezone updated successfully.');
+      await refreshAccount();
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       setErrorMsg(err.message);
@@ -145,7 +132,7 @@ export default function SettingsPage() {
       }
 
       setDisconnectModal({ open: false, type: null, id: null, email: '' });
-      await loadData();
+      await refreshAccount();
       setSuccessMsg(`Account disconnected successfully.`);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
