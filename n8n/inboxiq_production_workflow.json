@@ -12,7 +12,10 @@
       "name": "1. InboxIQ Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [160, 240]
+      "position": [
+        160,
+        240
+      ]
     },
     {
       "parameters": {
@@ -28,7 +31,10 @@
       "name": "2. Hourly Schedule Dispatcher",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [160, 480]
+      "position": [
+        160,
+        480
+      ]
     },
     {
       "parameters": {
@@ -40,7 +46,10 @@
       "name": "3. Immediate App Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [380, 240]
+      "position": [
+        380,
+        240
+      ]
     },
     {
       "parameters": {
@@ -50,19 +59,25 @@
       "name": "4. Normalize & 24H Window",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 360]
+      "position": [
+        600,
+        360
+      ]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  u.id AS user_id,\n  u.email AS user_email,\n  u.name AS user_name,\n  u.profession,\n  s.status AS subscription_status,\n  s.current_period_end,\n  COALESCE(st.report_time, '08:00') AS report_time,\n  COALESCE(st.timezone, 'Asia/Kolkata') AS timezone,\n  d.reports_folder_id,\n  d.status AS drive_status\nFROM public.users u\nINNER JOIN public.subscriptions s ON s.user_id = u.id\nLEFT JOIN public.user_settings st ON st.user_id = u.id\nLEFT JOIN public.google_drive_connections d ON d.user_id = u.id\nWHERE \n  ({{ $json.userId ? \"u.id = '\" + $json.userId + \"'\" : '1=1' }})\n  AND (s.status = 'active' OR (s.status = 'cancelled' AND s.current_period_end > now()))\n  -- Multi-tenant IANA timezone matching: evaluates current local hour for each user\n  AND (\n    {{ $json.isWebhook }} \n    OR st.report_time LIKE TO_CHAR(now() AT TIME ZONE COALESCE(st.timezone, 'UTC'), 'HH24') || ':%'\n    OR st.report_time IS NULL\n  );",
+        "query": "SELECT \n  u.id AS user_id,\n  u.email AS user_email,\n  u.name AS user_name,\n  u.profession,\n  s.status AS subscription_status,\n  s.current_period_end,\n  COALESCE(st.report_time, '08:00') AS report_time,\n  COALESCE(st.timezone, 'Asia/Kolkata') AS timezone,\n  d.reports_folder_id,\n  d.status AS drive_status\nFROM public.users u\nINNER JOIN public.subscriptions s ON s.user_id = u.id\nLEFT JOIN public.user_settings st ON st.user_id = u.id\nLEFT JOIN public.google_drive_connections d ON d.user_id = u.id\nWHERE \n  ({{ $json.userId ? \"u.id = '\" + $json.userId + \"'\" : '1=1' }})\n  AND (s.status = 'active' OR (s.status = 'cancelled' AND s.current_period_end > now()))\n  -- Timezone-aware hour match (e.g. '09' matches '09:00', '9:00', etc.)\n  AND (\n    {{ $json.isWebhook }} \n    OR LPAD(TRIM(SPLIT_PART(COALESCE(st.report_time, '08:00'), ':', 1)), 2, '0') = TO_CHAR(now() AT TIME ZONE COALESCE(st.timezone, 'Asia/Kolkata'), 'HH24')\n  );",
         "options": {}
       },
       "id": "node-5-check-subscription",
       "name": "5. Query Subscribed Users",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [840, 360],
+      "position": [
+        840,
+        360
+      ],
       "credentials": {
         "postgres": {
           "id": "o0aQ81JEu0e7mD5r",
@@ -99,7 +114,10 @@
       "name": "6. Is Paid & Eligible?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1080, 360]
+      "position": [
+        1080,
+        360
+      ]
     },
     {
       "parameters": {
@@ -119,6 +137,10 @@
             {
               "name": "x-correlation-id",
               "value": "={{ $('4. Normalize & 24H Window').first().json.correlationId }}"
+            },
+            {
+              "name": "x-inboxiq-secret",
+              "value": "inboxiq_production_orchestration_secret_key_2026"
             }
           ]
         },
@@ -131,7 +153,10 @@
       "name": "7. Fetch Gmail Slot 1 (Internal API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 240],
+      "position": [
+        1320,
+        240
+      ],
       "continueOnFail": true
     },
     {
@@ -152,6 +177,10 @@
             {
               "name": "x-correlation-id",
               "value": "={{ $('4. Normalize & 24H Window').first().json.correlationId }}"
+            },
+            {
+              "name": "x-inboxiq-secret",
+              "value": "inboxiq_production_orchestration_secret_key_2026"
             }
           ]
         },
@@ -164,7 +193,10 @@
       "name": "8. Fetch Gmail Slot 2 (Internal API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 480],
+      "position": [
+        1320,
+        480
+      ],
       "continueOnFail": true
     },
     {
@@ -173,7 +205,10 @@
       "name": "9. Merge Gmail Slots",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1560, 360]
+      "position": [
+        1560,
+        360
+      ]
     },
     {
       "parameters": {
@@ -183,7 +218,10 @@
       "name": "10. Deduplicate & Build Dataset",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1780, 360]
+      "position": [
+        1780,
+        360
+      ]
     },
     {
       "parameters": {
@@ -193,7 +231,10 @@
       "name": "11. Profession Prompt Adapter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2000, 360]
+      "position": [
+        2000,
+        360
+      ]
     },
     {
       "parameters": {
@@ -206,7 +247,10 @@
       "name": "12. AI Agent (Analyze Emails)",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [2240, 360]
+      "position": [
+        2240,
+        360
+      ]
     },
     {
       "parameters": {
@@ -217,7 +261,10 @@
       "name": "12a. Gemini 2.0 Flash",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [2160, 580],
+      "position": [
+        2160,
+        580
+      ],
       "credentials": {
         "googlePalmApi": {
           "id": "tycABtvTECdjrb5K",
@@ -233,17 +280,23 @@
       "name": "12b. JSON Parser",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
-      "position": [2340, 580]
+      "position": [
+        2340,
+        580
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Build responsive, profession-styled HTML report\nlet report = $json.output;\nif (typeof report === 'string') {\n  try { report = JSON.parse(report); } catch (e) { report = {}; }\n}\n\nconst ctx = $('11. Profession Prompt Adapter').first().json;\nconst profession = ctx.profession;\nconst userName = ctx.userName;\nconst reportDate = report.reportDate || ctx.reportDate;\nconst totalEmails = typeof report.totalEmails === 'number' ? report.totalEmails : ctx.totalEmails;\n\nconst escapeHtml = (v) => (v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;'));\nconst safeArr = (v) => (Array.isArray(v) ? v : []);\n\nconst urgentEmails = safeArr(report.urgentEmails);\nconst importantEmails = safeArr(report.importantEmails);\nconst repliedEmails = safeArr(report.repliedEmails);\nconst otherEmails = safeArr(report.otherEmails);\nconst actionItems = safeArr(report.actionItems);\nconst overallSummary = report.overallSummary || (totalEmails === 0 ? 'No new emails received during this 24-hour reporting window.' : 'Email intelligence report synthesized by InboxIQ.');\n\nlet badgeTitle = 'Faculty Intelligence';\nlet themeGradient = 'linear-gradient(135deg, #111827 0%, #1e3a8a 100%)';\nif (profession === 'student') {\n  badgeTitle = 'Student Academic Pulse';\n  themeGradient = 'linear-gradient(135deg, #064e3b 0%, #047857 100%)';\n} else if (profession === 'others') {\n  badgeTitle = 'Executive Intelligence';\n  themeGradient = 'linear-gradient(135deg, #18181b 0%, #3f3f46 100%)';\n}\n\nfunction renderCards(emails, type) {\n  if (!emails || emails.length === 0) return '<div class=\"empty\">None detected in this period.</div>';\n  return emails.map(e => `\n    <div class=\"email-card ${type}\">\n      <div class=\"email-header\">\n        <div class=\"email-main-info\">\n          <div class=\"sender\">${escapeHtml(e.sender || 'Unknown Sender')}</div>\n          <div class=\"subject\">${escapeHtml(e.subject || 'No Subject')}</div>\n        </div>\n        <div class=\"datetime\">${escapeHtml(e.dateTime || '')}</div>\n      </div>\n      <div class=\"email-content\">\n        <div class=\"label\">Key Insight / Why it matters</div>\n        <div class=\"text\">${escapeHtml(e.reason || e.summary || '')}</div>\n        ${e.action ? `<div class=\"label action-lbl\">Required Action / Status</div><div class=\"text\">${escapeHtml(e.action)}</div>` : ''}\n      </div>\n    </div>\n  `).join('');\n}\n\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>InboxIQ Daily Report - ${escapeHtml(reportDate)}</title>\n<style>\n* { box-sizing: border-box; }\nbody { margin: 0; padding: 0; background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; }\n.container { max-width: 900px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }\n.header { padding: 36px 40px; background: ${themeGradient}; color: #ffffff; }\n.badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.18); border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }\n.header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }\n.header-sub { margin-top: 6px; font-size: 14px; opacity: 0.85; }\n.content { padding: 36px 40px; }\n.section { margin-bottom: 32px; }\n.section-title { font-size: 18px; font-weight: 700; margin: 0 0 14px 0; color: #111827; display: flex; align-items: center; gap: 8px; }\n.summary-box { background: #f8fafc; border-left: 4px solid #3b82f6; border: 1px solid #e2e8f0; border-left-width: 4px; padding: 18px; border-radius: 8px; line-height: 1.65; font-size: 14px; }\n.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }\n.stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }\n.stat-val { font-size: 24px; font-weight: 800; color: #0f172a; }\n.stat-lbl { font-size: 12px; font-weight: 600; color: #64748b; margin-top: 4px; text-transform: uppercase; }\n.email-card { border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 12px; overflow: hidden; background: #ffffff; }\n.email-card.urgent { border-left: 5px solid #ef4444; }\n.email-card.important { border-left: 5px solid #f59e0b; }\n.email-card.replied { border-left: 5px solid #10b981; }\n.email-card.other { border-left: 5px solid #94a3b8; }\n.email-header { display: flex; justify-content: space-between; padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #f1f5f9; }\n.sender { font-weight: 700; font-size: 14px; color: #0f172a; }\n.subject { font-size: 14px; color: #334155; margin-top: 3px; font-weight: 500; }\n.datetime { font-size: 12px; color: #64748b; }\n.email-content { padding: 14px 16px; }\n.label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }\n.label.action-lbl { color: #2563eb; margin-top: 10px; }\n.text { font-size: 13.5px; line-height: 1.55; color: #334155; }\n.empty { padding: 16px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: #64748b; font-style: italic; }\n.action-list { margin: 0; padding-left: 20px; }\n.action-list li { margin-bottom: 8px; font-size: 14px; color: #334155; line-height: 1.5; }\n.footer { padding: 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }\n@media(max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .content { padding: 20px; } .header { padding: 24px 20px; } }\n</style>\n</head>\n<body>\n<div class=\"container\">\n  <div class=\"header\">\n    <div class=\"badge\">${badgeTitle}</div>\n    <h1>Daily Email Intelligence Report</h1>\n    <div class=\"header-sub\">Prepared for ${escapeHtml(userName)} | Date: ${escapeHtml(reportDate)}</div>\n  </div>\n  <div class=\"content\">\n    <div class=\"section\">\n      <div class=\"section-title\">Executive Summary</div>\n      <div class=\"summary-box\">${escapeHtml(overallSummary)}</div>\n    </div>\n    <div class=\"section\">\n      <div class=\"section-title\">24-Hour Overview</div>\n      <div class=\"stats\">\n        <div class=\"stat-card\"><div class=\"stat-val\">${totalEmails}</div><div class=\"stat-lbl\">Total Processed</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${urgentEmails.length}</div><div class=\"stat-lbl\">Urgent</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${importantEmails.length}</div><div class=\"stat-lbl\">Important</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${repliedEmails.length}</div><div class=\"stat-lbl\">Replied</div></div>\n      </div>\n    </div>\n    <div class=\"section\"><div class=\"section-title\">🚨 Urgent Priority Emails</div>${renderCards(urgentEmails, 'urgent')}</div>\n    <div class=\"section\"><div class=\"section-title\">⭐ High Importance</div>${renderCards(importantEmails, 'important')}</div>\n    <div class=\"section\"><div class=\"section-title\">✅ Handled & Replied To</div>${renderCards(repliedEmails, 'replied')}</div>\n    <div class=\"section\"><div class=\"section-title\">📋 Required Action Checklist</div>\n      ${actionItems.length === 0 ? '<div class=\"empty\">No pending action items identified.</div>' : `<ul class=\"action-list\">${actionItems.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`}\n    </div>\n    <div class=\"section\"><div class=\"section-title\">📁 General & Informational</div>${renderCards(otherEmails, 'other')}</div>\n  </div>\n  <div class=\"footer\">Generated automatically by InboxIQ Email Intelligence Engine • Multi-Tenant SaaS Delivery</div>\n</div>\n</body>\n</html>`;\n\nconst safeDate = String(reportDate).replace(/[^0-9-]/g, '');\nconst fileName = `InboxIQ-Report-${safeDate}.html`;\n\nreturn [{\n  json: {\n    html,\n    reportDate,\n    fileName,\n    recipientEmail: ctx.userEmail,\n    totalEmails,\n    overallSummary,\n    executionId: ctx.executionId,\n    userId: ctx.userId\n  }\n}];"
+        "jsCode": "// Build responsive, profession-styled HTML report\nlet report = $json.output;\nif (typeof report === 'string') {\n  let clean = report.trim();\n  if (clean.startsWith('```')) {\n    clean = clean.replace(/^```[a-zA-Z]*\\n?/, '').replace(/```$/, '').trim();\n  }\n  try { report = JSON.parse(clean); } catch (e) { report = {}; }\n}\n\nconst ctx = $('11. Profession Prompt Adapter').first().json;\nconst profession = ctx.profession;\nconst userName = ctx.userName;\nconst reportDate = report.reportDate || ctx.reportDate;\nconst totalEmails = typeof report.totalEmails === 'number' ? report.totalEmails : ctx.totalEmails;\n\nconst escapeHtml = (v) => (v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;'));\nconst safeArr = (v) => (Array.isArray(v) ? v : []);\n\nconst urgentEmails = safeArr(report.urgentEmails);\nconst importantEmails = safeArr(report.importantEmails);\nconst repliedEmails = safeArr(report.repliedEmails);\nconst otherEmails = safeArr(report.otherEmails);\nconst actionItems = safeArr(report.actionItems);\nconst overallSummary = report.overallSummary || (totalEmails === 0 ? 'No new emails received during this 24-hour reporting window.' : 'Email intelligence report synthesized by InboxIQ.');\n\nlet badgeTitle = 'Faculty Intelligence';\nlet themeGradient = 'linear-gradient(135deg, #111827 0%, #1e3a8a 100%)';\nif (profession === 'student') {\n  badgeTitle = 'Student Academic Pulse';\n  themeGradient = 'linear-gradient(135deg, #064e3b 0%, #047857 100%)';\n} else if (profession === 'others') {\n  badgeTitle = 'Executive Intelligence';\n  themeGradient = 'linear-gradient(135deg, #18181b 0%, #3f3f46 100%)';\n}\n\nfunction renderCards(emails, type) {\n  if (!emails || emails.length === 0) return '<div class=\"empty\">None detected in this period.</div>';\n  return emails.map(e => `\n    <div class=\"email-card ${type}\">\n      <div class=\"email-header\">\n        <div class=\"email-main-info\">\n          <div class=\"sender\">${escapeHtml(e.sender || 'Unknown Sender')}</div>\n          <div class=\"subject\">${escapeHtml(e.subject || 'No Subject')}</div>\n        </div>\n        <div class=\"datetime\">${escapeHtml(e.dateTime || '')}</div>\n      </div>\n      <div class=\"email-content\">\n        <div class=\"label\">Key Insight / Why it matters</div>\n        <div class=\"text\">${escapeHtml(e.reason || e.summary || '')}</div>\n        ${e.action ? `<div class=\"label action-lbl\">Required Action / Status</div><div class=\"text\">${escapeHtml(e.action)}</div>` : ''}\n      </div>\n    </div>\n  `).join('');\n}\n\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>InboxIQ Daily Report - ${escapeHtml(reportDate)}</title>\n<style>\n* { box-sizing: border-box; }\nbody { margin: 0; padding: 0; background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; }\n.container { max-width: 900px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }\n.header { padding: 36px 40px; background: ${themeGradient}; color: #ffffff; }\n.badge { display: inline-block; padding: 4px 12px; background: rgba(255,255,255,0.18); border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }\n.header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }\n.header-sub { margin-top: 6px; font-size: 14px; opacity: 0.85; }\n.content { padding: 36px 40px; }\n.section { margin-bottom: 32px; }\n.section-title { font-size: 18px; font-weight: 700; margin: 0 0 14px 0; color: #111827; display: flex; align-items: center; gap: 8px; }\n.summary-box { background: #f8fafc; border-left: 4px solid #3b82f6; border: 1px solid #e2e8f0; border-left-width: 4px; padding: 18px; border-radius: 8px; line-height: 1.65; font-size: 14px; }\n.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }\n.stat-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }\n.stat-val { font-size: 24px; font-weight: 800; color: #0f172a; }\n.stat-lbl { font-size: 12px; font-weight: 600; color: #64748b; margin-top: 4px; text-transform: uppercase; }\n.email-card { border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 12px; overflow: hidden; background: #ffffff; }\n.email-card.urgent { border-left: 5px solid #ef4444; }\n.email-card.important { border-left: 5px solid #f59e0b; }\n.email-card.replied { border-left: 5px solid #10b981; }\n.email-card.other { border-left: 5px solid #94a3b8; }\n.email-header { display: flex; justify-content: space-between; padding: 14px 16px; background: #f8fafc; border-bottom: 1px solid #f1f5f9; }\n.sender { font-weight: 700; font-size: 14px; color: #0f172a; }\n.subject { font-size: 14px; color: #334155; margin-top: 3px; font-weight: 500; }\n.datetime { font-size: 12px; color: #64748b; }\n.email-content { padding: 14px 16px; }\n.label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }\n.label.action-lbl { color: #2563eb; margin-top: 10px; }\n.text { font-size: 13.5px; line-height: 1.55; color: #334155; }\n.empty { padding: 16px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: #64748b; font-style: italic; }\n.action-list { margin: 0; padding-left: 20px; }\n.action-list li { margin-bottom: 8px; font-size: 14px; color: #334155; line-height: 1.5; }\n.footer { padding: 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }\n@media(max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .content { padding: 20px; } .header { padding: 24px 20px; } }\n</style>\n</head>\n<body>\n<div class=\"container\">\n  <div class=\"header\">\n    <div class=\"badge\">${badgeTitle}</div>\n    <h1>Daily Email Intelligence Report</h1>\n    <div class=\"header-sub\">Prepared for ${escapeHtml(userName)} | Date: ${escapeHtml(reportDate)}</div>\n  </div>\n  <div class=\"content\">\n    <div class=\"section\">\n      <div class=\"section-title\">Executive Summary</div>\n      <div class=\"summary-box\">${escapeHtml(overallSummary)}</div>\n    </div>\n    <div class=\"section\">\n      <div class=\"section-title\">24-Hour Overview</div>\n      <div class=\"stats\">\n        <div class=\"stat-card\"><div class=\"stat-val\">${totalEmails}</div><div class=\"stat-lbl\">Total Processed</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${urgentEmails.length}</div><div class=\"stat-lbl\">Urgent</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${importantEmails.length}</div><div class=\"stat-lbl\">Important</div></div>\n        <div class=\"stat-card\"><div class=\"stat-val\">${repliedEmails.length}</div><div class=\"stat-lbl\">Replied</div></div>\n      </div>\n    </div>\n    <div class=\"section\"><div class=\"section-title\">🚨 Urgent Priority Emails</div>${renderCards(urgentEmails, 'urgent')}</div>\n    <div class=\"section\"><div class=\"section-title\">⭐ High Importance</div>${renderCards(importantEmails, 'important')}</div>\n    <div class=\"section\"><div class=\"section-title\">✅ Handled & Replied To</div>${renderCards(repliedEmails, 'replied')}</div>\n    <div class=\"section\"><div class=\"section-title\">📋 Required Action Checklist</div>\n      ${actionItems.length === 0 ? '<div class=\"empty\">No pending action items identified.</div>' : `<ul class=\"action-list\">${actionItems.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`}\n    </div>\n    <div class=\"section\"><div class=\"section-title\">📁 General & Informational</div>${renderCards(otherEmails, 'other')}</div>\n  </div>\n  <div class=\"footer\">Generated automatically by InboxIQ Email Intelligence Engine • Multi-Tenant SaaS Delivery</div>\n</div>\n</body>\n</html>`;\n\nconst safeDate = String(reportDate).replace(/[^0-9-]/g, '');\nconst fileName = `InboxIQ-Report-${safeDate}.html`;\n\nreturn [{\n  json: {\n    html,\n    reportDate,\n    fileName,\n    recipientEmail: ctx.userEmail,\n    totalEmails,\n    overallSummary,\n    executionId: ctx.executionId,\n    userId: ctx.userId\n  }\n}];"
       },
       "id": "node-13-build-html",
       "name": "13. Build Profession HTML Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2560, 360]
+      "position": [
+        2560,
+        360
+      ]
     },
     {
       "parameters": {
@@ -252,7 +305,10 @@
       },
       "type": "n8n-nodes-htmlcsstopdf.htmlcsstopdf",
       "typeVersion": 1,
-      "position": [2800, 480],
+      "position": [
+        2800,
+        480
+      ],
       "id": "node-14-html-to-pdf",
       "name": "14. Convert HTML to PDF",
       "credentials": {
@@ -281,19 +337,26 @@
             {
               "name": "x-correlation-id",
               "value": "={{ $('4. Normalize & 24H Window').first().json.correlationId }}"
+            },
+            {
+              "name": "x-inboxiq-secret",
+              "value": "inboxiq_production_orchestration_secret_key_2026"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"subject\": \"Daily Email Intelligence Report ({{ $('13. Build Profession HTML Report').first().json.reportDate }}) | InboxIQ\",\n  \"html_content\": \"{{ $('13. Build Profession HTML Report').first().json.html.replace(/\\\\/g, '\\\\\\\\').replace(/\\\"/g, '\\\\\"').replace(/\\n/g, '\\\\n').replace(/\\r/g, '') }}\"\n}",
+        "jsonBody": "={\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"subject\": \"Daily Email Intelligence Report ({{ $('13. Build Profession HTML Report').first().json.reportDate }}) | InboxIQ\",\n  \"html_content\": {{ JSON.stringify($('13. Build Profession HTML Report').first().json.html) }}\n}",
         "options": {}
       },
       "id": "node-15-send-report",
       "name": "15. Deliver Report to User (Internal API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2800, 240],
+      "position": [
+        2800,
+        240
+      ],
       "continueOnFail": true
     },
     {
@@ -314,19 +377,26 @@
             {
               "name": "x-correlation-id",
               "value": "={{ $('4. Normalize & 24H Window').first().json.correlationId }}"
+            },
+            {
+              "name": "x-inboxiq-secret",
+              "value": "inboxiq_production_orchestration_secret_key_2026"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"pdf_base64\": \"{{ $binary.data.data }}\",\n  \"file_name\": \"{{ $('13. Build Profession HTML Report').first().json.fileName.replace('.html', '.pdf') }}\"\n}",
+        "jsonBody": "={\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"pdf_base64\": \"{{ $binary?.data?.data || '' }}\",\n  \"file_name\": \"{{ $('13. Build Profession HTML Report').first().json.fileName.replace('.html', '.pdf') }}\"\n}",
         "options": {}
       },
       "id": "node-16-upload-drive",
       "name": "16. Upload PDF to Drive (Internal API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3040, 480],
+      "position": [
+        3040,
+        480
+      ],
       "continueOnFail": true
     },
     {
@@ -347,19 +417,26 @@
             {
               "name": "x-correlation-id",
               "value": "={{ $('4. Normalize & 24H Window').first().json.correlationId }}"
+            },
+            {
+              "name": "x-inboxiq-secret",
+              "value": "inboxiq_production_orchestration_secret_key_2026"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"report_date\": \"{{ $('13. Build Profession HTML Report').first().json.reportDate }}\",\n  \"status\": \"completed\",\n  \"email_delivery_status\": \"delivered\",\n  \"drive_upload_status\": \"uploaded\",\n  \"emails_processed\": {{ $('13. Build Profession HTML Report').first().json.totalEmails }},\n  \"executive_summary\": \"{{ $('13. Build Profession HTML Report').first().json.overallSummary.replace(/\\\"/g, '\\\\\"').replace(/\\n/g, ' ') }}\"\n}",
+        "jsonBody": "={\n  \"execution_id\": \"{{ $('13. Build Profession HTML Report').first().json.executionId }}\",\n  \"user_id\": \"{{ $('13. Build Profession HTML Report').first().json.userId }}\",\n  \"report_date\": \"{{ $('13. Build Profession HTML Report').first().json.reportDate }}\",\n  \"status\": \"completed\",\n  \"email_delivery_status\": \"delivered\",\n  \"drive_upload_status\": \"uploaded\",\n  \"emails_processed\": {{ $('13. Build Profession HTML Report').first().json.totalEmails }},\n  \"executive_summary\": {{ JSON.stringify($('13. Build Profession HTML Report').first().json.overallSummary) }}\n}",
         "options": {}
       },
       "id": "node-17-callback-inboxiq",
       "name": "17. Sync Status with InboxIQ Webhook",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3280, 360],
+      "position": [
+        3280,
+        360
+      ],
       "continueOnFail": true
     }
   ],

@@ -29,7 +29,12 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing or invalid user_id.', 400);
     }
     if (!pdf_base64 || !file_name) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'pdf_base64 and file_name are required.', 400);
+      return NextResponse.json({
+        success: true,
+        uploaded: false,
+        status: 'skipped',
+        message: 'No PDF data provided to upload.',
+      });
     }
 
     // 1. Sanitize file name to prevent path traversal
