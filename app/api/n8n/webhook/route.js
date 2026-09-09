@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyN8nWebhookSignature } from '@/lib/n8n/client';
+import { verifyInternalAuth } from '@/lib/internal-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
@@ -10,8 +11,19 @@ export async function POST(req) {
     const rawBody = await req.text();
     const signature = req.headers.get('x-inboxiq-signature');
 
-    // 1. Signature Verification
-    const isValid = verifyN8nWebhookSignature(rawBody, signature);
+    // 1. Signature & Timestamp Verification
+    const timestamp = req.headers.get('x-inboxiq-timestamp');
+    let isValid = false;
+    if (timestamp) {
+      try {
+        verifyInternalAuth(req, rawBody);
+        isValid = true;
+      } catch (authErr) {
+        isValid = false;
+      }
+    } else {
+      isValid = verifyN8nWebhookSignature(rawBody, signature);
+    }
     if (!isValid) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'Invalid n8n webhook signature.', 401);
     }
