@@ -3,12 +3,20 @@ import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { getGoogleOAuth2Client, GOOGLE_SCOPES, generateOAuthState } from '@/lib/google/oauth';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
+import { checkRateLimit } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
   try {
     const user = await getAuthenticatedUser();
+
+    // Rate limiting: Max 10 Google connect initiations per minute per user
+    const rateLimit = checkRateLimit(`google_connect_${user.id}`, 10, 60000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Too many connection attempts. Please wait a moment.', 429);
+    }
+
     const { searchParams } = new URL(req.url);
 
     const type = searchParams.get('type') || 'gmail'; // 'gmail' | 'drive'

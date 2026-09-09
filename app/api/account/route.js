@@ -156,24 +156,54 @@ export async function GET() {
 
 /**
  * PATCH handler for user profile edits.
- * Enforces strict server-side lock on 'profession', 'country', and 'gender'.
+ * Strictly enforces immutability on 'profession', 'country', and 'gender'.
+ * Only 'name' and 'email' may be updated.
  */
 export async function PATCH(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
+    // Explicit rejection for immutable fields per Section 6 & 12
+    if (
+      (body.profession && body.profession !== user.profession) ||
+      (body.country && body.country !== user.country) ||
+      (body.gender && body.gender !== user.gender)
+    ) {
+      throw new AppError(
+        ErrorCategories.AUTH_ERROR,
+        'Modifying immutable registration attributes (gender, profession, country) is strictly forbidden.',
+        403
+      );
+    }
+
+    // Explicitly allowlisted editable fields only
     const updates = {};
-    if (body.name && typeof body.name === 'string') updates.name = body.name.trim();
-    if (body.email && typeof body.email === 'string') updates.email = body.email.trim().toLowerCase();
-    if (body.profession && typeof body.profession === 'string') updates.profession = body.profession.toLowerCase();
-    if (body.country && typeof body.country === 'string') updates.country = body.country.trim();
-    if (body.gender && typeof body.gender === 'string') updates.gender = body.gender.toLowerCase();
+    if (body.name && typeof body.name === 'string') {
+      const trimmedName = body.name.trim();
+      if (trimmedName.length < 2 || trimmedName.length > 120) {
+        throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Name must be between 2 and 120 characters.', 400);
+      }
+      updates.name = trimmedName;
+    }
+
+    if (body.email && typeof body.email === 'string') {
+      const trimmedEmail = body.email.trim().toLowerCase();
+      const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailPattern.test(trimmedEmail) || trimmedEmail.length > 150) {
+        throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Please provide a valid email address.', 400);
+      }
+      updates.email = trimmedEmail;
+    }
+
     updates.updated_at = new Date().toISOString();
 
-    if (Object.keys(updates).length > 0) {
-      await supabaseAdmin.from('users').update(updates).eq('id', user.id);
+    if (Object.keys(updates).length > 1) { // more than just updated_at
+      const { error: updateErr } = await supabaseAdmin.from('users').update(updates).eq('id', user.id);
+      if (updateErr) {
+        throw new AppError(ErrorCategories.DATABASE_ERROR, 'Failed to update user profile: ' + updateErr.message, 500);
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Profile updated successfully.' });

@@ -2,23 +2,30 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
-import { generateCorrelationId } from '@/lib/utils';
+import { generateCorrelationId, isValidIanaTimezone, checkRateLimit } from '@/lib/utils';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
-    const body = await req.json();
+
+    // Rate limiting: Max 15 schedule updates per minute per user
+    const rateLimit = checkRateLimit(`schedule_update_${user.id}`, 15, 60000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Too many update requests. Please wait a moment.', 429);
+    }
+
+    const body = await req.json().catch(() => ({}));
 
     const { reportTime, timezone, onboardingCompleted } = body;
 
-    // Validate inputs per Section 55.21
+    // Validate inputs
     if (!reportTime || !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(reportTime)) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid report time format. Use HH:MM', 400);
     }
 
-    if (!timezone || typeof timezone !== 'string') {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid timezone identifier.', 400);
+    if (!isValidIanaTimezone(timezone)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid IANA timezone identifier.', 400);
     }
 
     const updates = {

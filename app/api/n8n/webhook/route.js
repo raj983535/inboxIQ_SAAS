@@ -10,13 +10,18 @@ export async function POST(req) {
     const rawBody = await req.text();
     const signature = req.headers.get('x-inboxiq-signature');
 
-    // 1. Signature Verification per Section 55.11
+    // 1. Signature Verification
     const isValid = verifyN8nWebhookSignature(rawBody, signature);
-    if (!isValid && process.env.NODE_ENV === 'production') {
+    if (!isValid) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'Invalid n8n webhook signature.', 401);
     }
 
-    const payload = JSON.parse(rawBody);
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseErr) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Malformed n8n webhook JSON payload.', 400);
+    }
     const {
       execution_id,
       user_id,

@@ -3,12 +3,18 @@ import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { triggerN8nWorkflow } from '@/lib/n8n/client';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
-import { generateCorrelationId, generateExecutionId } from '@/lib/utils';
+import { generateCorrelationId, generateExecutionId, checkRateLimit } from '@/lib/utils';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
+
+    // Rate limiting: Max 5 manual triggers per 5 minutes per user
+    const rateLimit = checkRateLimit(`n8n_trigger_${user.id}`, 5, 300000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Pipeline execution rate limit exceeded. Please wait a few minutes.', 429);
+    }
 
     // 1. Subscription & Authorization Check
     const { data: subscriptions } = await supabaseAdmin

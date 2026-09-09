@@ -3,13 +3,20 @@ import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { getRazorpayClient } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
-import { generateCorrelationId } from '@/lib/utils';
+import { generateCorrelationId, checkRateLimit } from '@/lib/utils';
 import { getPlanForProfession, getRecurringRazorpayPlanId } from '@/lib/pricing';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
+
+    // Rate limit: Max 10 subscription initialization requests per minute per user
+    const rateLimit = checkRateLimit(`create_sub_${user.id}`, 10, 60000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Too many subscription requests. Please wait a moment.', 429);
+    }
+
     const body = await req.json().catch(() => ({}));
 
     const requestedCurrency = body.currency === 'USD' ? 'USD' : 'INR';

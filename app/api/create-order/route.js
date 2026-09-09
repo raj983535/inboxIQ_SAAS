@@ -3,23 +3,27 @@ import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { getRazorpayClient } from '@/lib/razorpay/razorpay';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
-import { generateCorrelationId } from '@/lib/utils';
+import { generateCorrelationId, checkRateLimit } from '@/lib/utils';
 import { getPlanForProfession } from '@/lib/pricing';
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
-    const body = await req.json().catch(() => ({}));
+    
+    // Rate limit: Max 10 order creation requests per minute per user
+    const rateLimit = checkRateLimit(`create_order_${user.id}`, 10, 60000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Too many payment initialization requests. Please wait a moment.', 429);
+    }
 
+    const body = await req.json().catch(() => ({}));
     const requestedCurrency = body.currency === 'USD' ? 'USD' : 'INR';
     const profession = user?.profession || 'professor_teacher';
     const planInfo = getPlanForProfession(profession, requestedCurrency);
     
-    // Amount can be provided in body or inferred from plan (amount in paise/cents)
-    let amountInPaise = body.amount
-      ? (body.amount > 1000 ? body.amount : body.amount * 100)
-      : planInfo.activePricing.amount * 100;
+    // Strict server-side price calculation: NEVER trust client-supplied amount or price overrides
+    const amountInPaise = planInfo.activePricing.amount * 100;
 
     // Minimum amount validation: 100 paise (₹1.00)
     if (!amountInPaise || amountInPaise < 100) {

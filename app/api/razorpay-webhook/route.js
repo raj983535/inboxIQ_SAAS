@@ -12,7 +12,7 @@ import {
 export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
-    // 1. Must read raw body as text for HMAC verification per Section 55.19
+    // 1. Must read raw body as text for HMAC verification
     const rawBody = await req.text();
     const signature = req.headers.get('x-razorpay-signature');
 
@@ -20,13 +20,18 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'Missing Razorpay signature header.', 400);
     }
 
-    // 2. Verify webhook signature
+    // 2. Verify webhook signature strictly
     const isValid = verifyRazorpayWebhookSignature(rawBody, signature);
-    if (!isValid && process.env.NODE_ENV === 'production') {
+    if (!isValid) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'Invalid Razorpay webhook signature.', 401);
     }
 
-    const payload = JSON.parse(rawBody);
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseErr) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Malformed webhook JSON payload.', 400);
+    }
     const event = payload.event;
     const entity = payload.payload?.subscription?.entity || payload.payload?.payment?.entity || {};
 

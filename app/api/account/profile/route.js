@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/clerk/auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { AppError, ErrorCategories, formatSafeErrorResponse } from '@/lib/errors';
-import { generateCorrelationId } from '@/lib/utils';
+import { generateCorrelationId, isValidIanaTimezone, checkRateLimit } from '@/lib/utils';
 
 const GENDERS = new Set(['male', 'female', 'non_binary', 'prefer_not_to_say']);
 const PROFESSIONS = new Set(['professor_teacher', 'student', 'others']);
@@ -12,7 +12,14 @@ export async function POST(req) {
   const correlationId = generateCorrelationId();
   try {
     const user = await getAuthenticatedUser();
-    const { name, gender, profession, country, reportTime, timezone } = await req.json();
+
+    // Rate limiting: Max 15 profile setup requests per minute
+    const rateLimit = checkRateLimit(`profile_setup_${user.id}`, 15, 60000);
+    if (!rateLimit.allowed) {
+      throw new AppError(ErrorCategories.RATE_LIMIT_ERROR, 'Too many requests. Please slow down.', 429);
+    }
+
+    const { name, gender, profession, country, reportTime, timezone } = await req.json().catch(() => ({}));
 
     if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 120) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Please enter your full name (2–120 characters).', 400);
@@ -23,8 +30,29 @@ export async function POST(req) {
     if (typeof country !== 'string' || country.trim().length < 2 || country.trim().length > 100) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Please enter a valid country.', 400);
     }
-    if (!TIME_PATTERN.test(reportTime) || typeof timezone !== 'string' || timezone.length > 100) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Please choose a valid delivery time and timezone.', 400);
+    if (!TIME_PATTERN.test(reportTime) || !isValidIanaTimezone(timezone)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Please choose a valid delivery time (HH:MM) and valid IANA timezone.', 400);
+    }
+
+    // Check if user has already completed onboarding/registration
+    const { data: existingSettings } = await supabaseAdmin
+      .from('user_settings')
+      .select('id, profile_completed')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingSettings?.profile_completed) {
+      if (
+        (gender && gender !== user.gender) ||
+        (profession && profession !== user.profession) ||
+        (country && country.trim() !== user.country)
+      ) {
+        throw new AppError(
+          ErrorCategories.AUTH_ERROR,
+          'Modifying permanent registration attributes (gender, profession, country) is forbidden after profile setup.',
+          403
+        );
+      }
     }
 
     const { error: profileError } = await supabaseAdmin.from('users').update({
@@ -38,13 +66,6 @@ export async function POST(req) {
       console.error('Profile update error:', profileError);
       throw new AppError(ErrorCategories.DATABASE_ERROR, 'Unable to save your profile: ' + profileError.message, 500);
     }
-
-    // Check if user_settings exists
-    const { data: existingSettings } = await supabaseAdmin
-      .from('user_settings')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
 
     let settingsError = null;
     const settingsPayload = {
