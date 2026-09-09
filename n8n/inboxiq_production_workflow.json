@@ -250,7 +250,10 @@
       "position": [
         2240,
         360
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
@@ -270,7 +273,10 @@
           "id": "tycABtvTECdjrb5K",
           "name": "Google Gemini(PaLM) Api account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
