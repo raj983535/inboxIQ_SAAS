@@ -30,15 +30,15 @@ export default function AdminConnectionsPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Google Connections Health</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Google Connections Health</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Operational status of linked Gmail mailboxes and Google Drive archival targets. (Refresh tokens are encrypted and never shown)
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchConnections} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchConnections} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>
@@ -46,7 +46,7 @@ export default function AdminConnectionsPage() {
       {/* Gmail Connections Table */}
       <div className="space-y-3">
         <h2 className="text-base font-bold flex items-center gap-2">
-          <Mail className="w-4 h-4 text-emerald-400" /> Gmail Inboxes
+          <Mail className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> Gmail Inboxes
         </h2>
         <Table>
           <TableHead>
@@ -63,13 +63,13 @@ export default function AdminConnectionsPage() {
               data.gmail_connections.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>{c.users?.email || 'N/A'}</TableCell>
-                  <TableCell className="font-semibold text-white">{c.account_email}</TableCell>
+                  <TableCell className="font-semibold text-slate-900 dark:text-white">{c.account_email}</TableCell>
                   <TableCell>Slot #{c.connection_slot}</TableCell>
                   <TableCell>
                     <Badge variant={c.status === 'connected' ? 'success' : 'danger'}>{c.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-slate-600 dark:text-neutral-400">
                       {c.last_connected_at ? new Date(c.last_connected_at).toLocaleString() : 'N/A'}
                     </span>
                   </TableCell>
@@ -77,7 +77,7 @@ export default function AdminConnectionsPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-neutral-400">
+                <TableCell colSpan={5} className="text-center py-6 text-slate-500 dark:text-neutral-400">
                   {loading ? 'Loading...' : 'No Gmail connections found.'}
                 </TableCell>
               </TableRow>
@@ -89,7 +89,7 @@ export default function AdminConnectionsPage() {
       {/* Drive Connections Table */}
       <div className="space-y-3 pt-4">
         <h2 className="text-base font-bold flex items-center gap-2">
-          <HardDrive className="w-4 h-4 text-purple-400" /> Google Drive Archival Folders
+          <HardDrive className="w-4 h-4 text-purple-500 dark:text-purple-400" /> Google Drive Archival Folders
         </h2>
         <Table>
           <TableHead>
@@ -105,7 +105,7 @@ export default function AdminConnectionsPage() {
               data.drive_connections.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell>{d.users?.email || 'N/A'}</TableCell>
-                  <TableCell className="font-semibold text-white">{d.account_email}</TableCell>
+                  <TableCell className="font-semibold text-slate-900 dark:text-white">{d.account_email}</TableCell>
                   <TableCell>
                     <Badge variant={d.status === 'connected' ? 'purple' : 'danger'}>{d.status}</Badge>
                   </TableCell>
@@ -116,7 +116,7 @@ export default function AdminConnectionsPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-6 text-neutral-400">
+                <TableCell colSpan={4} className="text-center py-6 text-slate-500 dark:text-neutral-400">
                   {loading ? 'Loading...' : 'No Google Drive connections found.'}
                 </TableCell>
               </TableRow>

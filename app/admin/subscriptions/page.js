@@ -30,15 +30,15 @@ export default function AdminSubscriptionsPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Subscription Monitoring</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Subscription Monitoring</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Real-time Razorpay subscription states, active plans, and billing periods.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchSubscriptions} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchSubscriptions} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>
@@ -59,8 +59,8 @@ export default function AdminSubscriptionsPage() {
             subscriptions.map((sub) => (
               <TableRow key={sub.id}>
                 <TableCell>
-                  <div className="font-semibold text-white">{sub.users?.email || 'N/A'}</div>
-                  <div className="text-[11px] text-neutral-400">{sub.users?.name || ''}</div>
+                  <div className="font-semibold text-slate-900 dark:text-white">{sub.users?.email || 'N/A'}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-neutral-400">{sub.users?.name || ''}</div>
                 </TableCell>
                 <TableCell>{sub.plan_name}</TableCell>
                 <TableCell>₹{sub.amount} {sub.currency}</TableCell>
@@ -72,28 +72,28 @@ export default function AdminSubscriptionsPage() {
                 <TableCell>
                   {sub.razorpay_subscription_id ? (
                     <div>
-                      <span className="font-mono text-xs text-emerald-400">{sub.razorpay_subscription_id}</span>
-                      <div className="text-[10px] text-neutral-500">Subscription ID</div>
+                      <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400">{sub.razorpay_subscription_id}</span>
+                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Subscription ID</div>
                     </div>
                   ) : sub.razorpay_order_id ? (
                     <div>
-                      <span className="font-mono text-xs text-blue-400">{sub.razorpay_order_id}</span>
-                      <div className="text-[10px] text-neutral-500">Order ID</div>
+                      <span className="font-mono text-xs text-blue-600 dark:text-blue-400">{sub.razorpay_order_id}</span>
+                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Order ID</div>
                     </div>
                   ) : sub.razorpay_payment_id ? (
                     <div>
-                      <span className="font-mono text-xs text-amber-400">{sub.razorpay_payment_id}</span>
-                      <div className="text-[10px] text-neutral-500">Payment ID</div>
+                      <span className="font-mono text-xs text-amber-600 dark:text-amber-400">{sub.razorpay_payment_id}</span>
+                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Payment ID</div>
                     </div>
                   ) : (
                     <div>
-                      <span className="font-mono text-xs text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
-                      <div className="text-[10px] text-purple-400">System / Admin Tier</div>
+                      <span className="font-mono text-xs text-slate-600 dark:text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
+                      <div className="text-[10px] text-purple-600 dark:text-purple-400">System / Admin Tier</div>
                     </div>
                   )}
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-slate-600 dark:text-neutral-400">
                     {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : 'N/A'}
                   </span>
                 </TableCell>
@@ -101,7 +101,7 @@ export default function AdminSubscriptionsPage() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-neutral-400">
+              <TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-neutral-400">
                 {loading ? 'Loading subscriptions...' : 'No subscriptions recorded.'}
               </TableCell>
             </TableRow>

@@ -48,12 +48,12 @@ export default function AdminUserDetailPage() {
   }, [userId]);
 
   if (loading) {
-    return <div className="p-10 text-white">Loading user details...</div>;
+    return <div className="p-10 text-slate-600 dark:text-neutral-400">Loading user details...</div>;
   }
 
   if (error || !data?.user) {
     return (
-      <div className="p-10 space-y-4 text-white">
+      <div className="p-10 space-y-4 text-slate-900 dark:text-white">
         <Alert variant="danger">{error || 'User not found'}</Alert>
         <Link href="/admin/users">
           <Button variant="outline">
@@ -67,15 +67,15 @@ export default function AdminUserDetailPage() {
   const { user, settings, gmail_connections, drive_connection, subscription, recent_reports, recent_workflows } = data;
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto w-full text-white">
-      <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-3">
           <Link href="/admin/users">
-            <Button variant="outline" size="sm" className="border-neutral-700 bg-neutral-800 text-white">
+            <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
             </Button>
           </Link>
-          <h1 className="text-xl font-bold">User Operational Detail: {user.email}</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">User Operational Detail: {user.email}</h1>
         </div>
         <Badge variant={user.role === 'admin' ? 'danger' : 'default'}>{user.role}</Badge>
       </div>
@@ -83,40 +83,40 @@ export default function AdminUserDetailPage() {
       {/* User Metadata & Subscription Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Profile */}
-        <Card className="bg-neutral-900 border-neutral-800 text-white">
+        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm">Account Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-xs">
             <div>
-              <span className="text-neutral-400">User ID:</span> <span className="font-mono">{user.id}</span>
+              <span className="text-slate-500 dark:text-neutral-400">User ID:</span> <span className="font-mono text-slate-700 dark:text-neutral-300">{user.id}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Clerk ID:</span> <span className="font-mono">{user.clerk_user_id}</span>
+              <span className="text-slate-500 dark:text-neutral-400">Clerk ID:</span> <span className="font-mono text-slate-700 dark:text-neutral-300">{user.clerk_user_id}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Name:</span> <span>{user.name || 'N/A'}</span>
+              <span className="text-slate-500 dark:text-neutral-400">Name:</span> <span className="text-slate-900 dark:text-white font-medium">{user.name || 'N/A'}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Created:</span> <span>{new Date(user.created_at).toLocaleDateString()}</span>
+              <span className="text-slate-500 dark:text-neutral-400">Created:</span> <span className="text-slate-700 dark:text-neutral-300">{new Date(user.created_at).toLocaleDateString()}</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Schedule */}
-        <Card className="bg-neutral-900 border-neutral-800 text-white">
+        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm">Report Schedule</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-xs">
             <div>
-              <span className="text-neutral-400">Delivery Time:</span> <strong>{settings?.report_time || '08:00'}</strong>
+              <span className="text-slate-500 dark:text-neutral-400">Delivery Time:</span> <strong className="text-slate-900 dark:text-white">{settings?.report_time || '08:00'}</strong>
             </div>
             <div>
-              <span className="text-neutral-400">Timezone:</span> <span>{settings?.timezone || 'Asia/Kolkata'}</span>
+              <span className="text-slate-500 dark:text-neutral-400">Timezone:</span> <span className="text-slate-700 dark:text-neutral-300">{settings?.timezone || 'Asia/Kolkata'}</span>
             </div>
             <div>
-              <span className="text-neutral-400">Onboarding:</span>{' '}
+              <span className="text-slate-500 dark:text-neutral-400">Onboarding:</span>{' '}
               <Badge variant={settings?.onboarding_completed ? 'success' : 'warning'}>
                 {settings?.onboarding_completed ? 'Completed' : 'Pending'}
               </Badge>
@@ -125,59 +125,59 @@ export default function AdminUserDetailPage() {
         </Card>
 
         {/* Subscription */}
-        <Card className="bg-neutral-900 border-neutral-800 text-white">
+        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm">Subscription State</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-xs">
             <div>
-              <span className="text-neutral-400">Plan:</span> <strong>{subscription?.plan_name || 'InboxIQ Pro'}</strong>
+              <span className="text-slate-500 dark:text-neutral-400">Plan:</span> <strong className="text-slate-900 dark:text-white">{subscription?.plan_name || 'InboxIQ Pro'}</strong>
             </div>
             <div>
-              <span className="text-neutral-400">Status:</span>{' '}
+              <span className="text-slate-500 dark:text-neutral-400">Status:</span>{' '}
               <Badge variant={subscription?.status === 'active' ? 'success' : 'warning'}>
                 {subscription?.status || 'inactive'}
               </Badge>
             </div>
             <div>
-              <span className="text-neutral-400">Razorpay Sub ID:</span>{' '}
-              <span className="font-mono text-[11px]">{subscription?.razorpay_subscription_id || 'N/A'}</span>
+              <span className="text-slate-500 dark:text-neutral-400">Razorpay Sub ID:</span>{' '}
+              <span className="font-mono text-[11px] text-slate-700 dark:text-neutral-300">{subscription?.razorpay_subscription_id || 'N/A'}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Connected Accounts */}
-      <Card className="bg-neutral-900 border-neutral-800 text-white">
+      <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
         <CardHeader>
           <CardTitle className="text-sm">Connected Google Resources</CardTitle>
-          <CardDescription className="text-neutral-400">Tokens are encrypted at rest and never exposed.</CardDescription>
+          <CardDescription className="text-slate-500 dark:text-neutral-400">Tokens are encrypted at rest and never exposed.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {gmail_connections.length > 0 ? (
             gmail_connections.map((c) => (
-              <div key={c.id} className="p-3 rounded-lg bg-neutral-800/60 border border-neutral-700/60 flex items-center justify-between text-xs">
+              <div key={c.id} className="p-3 rounded-lg bg-slate-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-emerald-400" />
+                  <Mail className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                   <div>
-                    <span className="font-semibold">{c.account_email}</span>
-                    <span className="text-neutral-400 ml-2">(Slot #{c.connection_slot})</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{c.account_email}</span>
+                    <span className="text-slate-500 dark:text-neutral-400 ml-2">(Slot #{c.connection_slot})</span>
                   </div>
                 </div>
                 <Badge variant={c.status === 'connected' ? 'success' : 'danger'}>{c.status}</Badge>
               </div>
             ))
           ) : (
-            <p className="text-xs text-neutral-400">No Gmail accounts connected.</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400">No Gmail accounts connected.</p>
           )}
 
           {drive_connection && (
-            <div className="p-3 rounded-lg bg-neutral-800/60 border border-neutral-700/60 flex items-center justify-between text-xs">
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
-                <HardDrive className="w-4 h-4 text-purple-400" />
+                <HardDrive className="w-4 h-4 text-purple-500 dark:text-purple-400" />
                 <div>
-                  <span className="font-semibold">{drive_connection.account_email}</span>
-                  <span className="text-neutral-400 ml-2">(Google Drive Archival)</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{drive_connection.account_email}</span>
+                  <span className="text-slate-500 dark:text-neutral-400 ml-2">(Google Drive Archival)</span>
                 </div>
               </div>
               <Badge variant={drive_connection.status === 'connected' ? 'purple' : 'danger'}>
@@ -189,7 +189,7 @@ export default function AdminUserDetailPage() {
       </Card>
 
       {/* Recent Workflow Telemetry */}
-      <Card className="bg-neutral-900 border-neutral-800 text-white">
+      <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
         <CardHeader>
           <CardTitle className="text-sm">Recent Workflow Executions (n8n Engine)</CardTitle>
         </CardHeader>
@@ -197,10 +197,10 @@ export default function AdminUserDetailPage() {
           {recent_workflows.length > 0 ? (
             <div className="space-y-2">
               {recent_workflows.map((w) => (
-                <div key={w.id} className="p-3 rounded-lg bg-neutral-800/40 border border-neutral-700/40 flex items-center justify-between text-xs">
+                <div key={w.id} className="p-3 rounded-lg bg-slate-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/40 flex items-center justify-between text-xs">
                   <div>
-                    <div className="font-mono text-[11px] text-neutral-300">Exec ID: {w.execution_id}</div>
-                    <div className="text-neutral-400 text-[10px]">
+                    <div className="font-mono text-[11px] text-slate-700 dark:text-neutral-300">Exec ID: {w.execution_id}</div>
+                    <div className="text-slate-500 dark:text-neutral-400 text-[10px]">
                       Correlation: {w.correlation_id} • Processed: {w.emails_processed || 0} emails
                     </div>
                   </div>
@@ -211,7 +211,7 @@ export default function AdminUserDetailPage() {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-neutral-400">No executions recorded for this user yet.</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400">No executions recorded for this user yet.</p>
           )}
         </CardContent>
       </Card>

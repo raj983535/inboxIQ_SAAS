@@ -30,15 +30,15 @@ export default function AdminWorkflowsPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">n8n Workflow Executions</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">n8n Workflow Executions</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Monitoring boundary for external n8n automation engine processing runs.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>
@@ -59,7 +59,7 @@ export default function AdminWorkflowsPage() {
           {workflows.length > 0 ? (
             workflows.map((w) => (
               <TableRow key={w.id}>
-                <TableCell className="font-medium text-white">{w.users?.email || 'N/A'}</TableCell>
+                <TableCell className="font-medium text-slate-900 dark:text-white">{w.users?.email || 'N/A'}</TableCell>
                 <TableCell>
                   <span className="font-mono text-xs">{w.execution_id}</span>
                 </TableCell>
@@ -69,20 +69,20 @@ export default function AdminWorkflowsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-slate-600 dark:text-neutral-400">
                     {new Date(w.started_at).toLocaleTimeString()}
                   </span>
                 </TableCell>
                 <TableCell>{w.duration_ms ? `${w.duration_ms}ms` : '—'}</TableCell>
                 <TableCell>{w.emails_processed || 0}</TableCell>
                 <TableCell>
-                  <span className="font-mono text-[10px] text-neutral-500">{w.correlation_id}</span>
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-neutral-500">{w.correlation_id}</span>
                 </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-neutral-400">
+              <TableCell colSpan={7} className="text-center py-8 text-slate-500 dark:text-neutral-400">
                 {loading ? 'Loading workflow logs...' : 'No workflow executions recorded.'}
               </TableCell>
             </TableRow>

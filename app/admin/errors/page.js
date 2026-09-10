@@ -30,15 +30,15 @@ export default function AdminErrorsPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Failure &amp; Error Monitoring</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Failure &amp; Error Monitoring</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Categorized system failures, OAuth revocations, and automation error codes. (No secrets or tokens exposed)
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchErrors} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchErrors} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>
@@ -61,18 +61,18 @@ export default function AdminErrorsPage() {
                 <TableCell>
                   <Badge variant="danger">{err.failure_category}</Badge>
                 </TableCell>
-                <TableCell className="text-white">{err.users?.email || 'System'}</TableCell>
-                <TableCell className="max-w-xs truncate text-xs text-rose-300">
+                <TableCell className="text-slate-900 dark:text-white">{err.users?.email || 'System'}</TableCell>
+                <TableCell className="max-w-xs truncate text-xs text-rose-600 dark:text-rose-300 font-medium">
                   {err.error_message}
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-neutral-400">{err.error_status}</span>
+                  <span className="text-xs text-slate-600 dark:text-neutral-400">{err.error_status}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="font-mono text-[10px] text-neutral-500">{err.correlation_id || '—'}</span>
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-neutral-500">{err.correlation_id || '—'}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-slate-600 dark:text-neutral-400">
                     {new Date(err.created_at).toLocaleString()}
                   </span>
                 </TableCell>
@@ -80,7 +80,7 @@ export default function AdminErrorsPage() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-neutral-400">
+              <TableCell colSpan={6} className="text-center py-8 text-emerald-600 dark:text-emerald-400 font-medium">
                 {loading ? 'Loading failures...' : '✓ No system failures logged. All services operating normally.'}
               </TableCell>
             </TableRow>

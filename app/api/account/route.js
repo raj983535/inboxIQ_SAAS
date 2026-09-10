@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedUser, isAuthorizedAdminEmail } from '@/lib/clerk/auth';
+import { getAuthenticatedUser } from '@/lib/clerk/auth';
+import { checkIsAdmin, isAuthorizedAdminEmail } from '@/lib/admin-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
@@ -44,7 +45,7 @@ export async function GET() {
     let activeSub = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
 
     // If subscription is not active, but user is authorized Admin / Owner (or has paid):
-    const isOwnerOrAdmin = user.role === 'admin' || user.role === 'super_admin' || isAuthorizedAdminEmail(user.email);
+    const isOwnerOrAdmin = checkIsAdmin(user);
     if ((!activeSub || activeSub.status !== 'active') && isOwnerOrAdmin) {
       const nowIso = new Date().toISOString();
       const periodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -107,6 +108,8 @@ export async function GET() {
       };
     }
 
+    const effectiveRole = isOwnerOrAdmin ? 'admin' : (user.role || 'user');
+
     return NextResponse.json(
       {
         success: true,
@@ -117,7 +120,8 @@ export async function GET() {
           gender: user.gender || 'male',
           profession: user.profession || 'professor_teacher',
           country: user.country || 'India',
-          role: user.role,
+          role: effectiveRole,
+          is_admin: isOwnerOrAdmin,
         },
         settings: settings || {
           report_time: '08:00',

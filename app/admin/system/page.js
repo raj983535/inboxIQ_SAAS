@@ -37,28 +37,28 @@ export default function AdminSystemPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Platform &amp; Integration Health</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Platform &amp; Integration Health</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Real configuration status across Control Plane, Database, OAuth, Razorpay, and n8n boundary.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchHealth} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchHealth} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh Health
         </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {Object.entries(services).map(([key, svc]) => (
-          <Card key={key} className="bg-neutral-900 border-neutral-800 text-white">
+          <Card key={key} className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white shadow-sm">
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold">{svc.name}</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{svc.name}</span>
                 {getStatusBadge(svc.status)}
               </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">{svc.note}</p>
+              <p className="text-xs text-slate-500 dark:text-neutral-400 leading-relaxed">{svc.note}</p>
             </CardContent>
           </Card>
         ))}

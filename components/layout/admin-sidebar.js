@@ -80,11 +80,11 @@ export function AdminSidebar() {
   ];
 
   return (
-    <aside className="hidden lg:flex w-64 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-900 text-neutral-300 flex-col justify-between shrink-0 min-h-screen sticky top-0 h-screen">
+    <aside className="hidden lg:flex w-64 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-slate-700 dark:text-neutral-300 flex-col justify-between shrink-0 min-h-screen sticky top-0 h-screen transition-colors">
       <div>
         {/* Admin Header */}
-        <div className="h-16 px-6 border-b border-neutral-800 flex items-center justify-between">
-          <Link href="/admin/dashboard" className="flex items-center gap-2.5 font-bold text-lg text-white">
+        <div className="h-16 px-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+          <Link href="/admin/dashboard" className="flex items-center gap-2.5 font-bold text-lg text-slate-900 dark:text-white">
             <div className="w-8 h-8 rounded-lg bg-rose-600 flex items-center justify-center text-white shadow">
               <ShieldAlert className="w-4 h-4" />
             </div>
@@ -103,11 +103,11 @@ export function AdminSidebar() {
                 href={item.href}
                 className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-neutral-800 text-white font-semibold border-l-2 border-rose-500'
-                    : 'text-neutral-400 hover:bg-neutral-800/60 hover:text-white'
+                    ? 'bg-rose-50 dark:bg-neutral-800 text-rose-600 dark:text-white font-semibold border-l-2 border-rose-500'
+                    : 'text-slate-600 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-neutral-800/60 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-rose-500' : 'text-neutral-500'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-rose-500' : 'text-slate-400 dark:text-neutral-500'}`} />
                 <span>{item.label}</span>
               </Link>
             );
@@ -116,15 +116,15 @@ export function AdminSidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-neutral-800 space-y-3">
+      <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 space-y-3">
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 text-xs text-neutral-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to User Dashboard
         </Link>
         <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-neutral-500">Theme</span>
+          <span className="text-[11px] text-slate-500 dark:text-neutral-500 font-medium">Theme</span>
           <ThemeToggle />
         </div>
         <AdminSignOutButton />

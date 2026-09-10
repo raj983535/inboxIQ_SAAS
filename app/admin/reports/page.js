@@ -30,15 +30,15 @@ export default function AdminReportsPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Report Execution Metadata</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Report Execution Metadata</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             Delivery confirmation to Gmail and PDF upload status to Google Drive. (Raw email text is not stored)
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchReports} loading={loading} className="w-full sm:w-auto text-white border-neutral-700 bg-neutral-800">
+        <Button size="sm" variant="outline" onClick={fetchReports} loading={loading} className="w-full sm:w-auto">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </Button>
       </div>
@@ -58,7 +58,7 @@ export default function AdminReportsPage() {
           {reports.length > 0 ? (
             reports.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-semibold text-white">{r.users?.email || 'N/A'}</TableCell>
+                <TableCell className="font-semibold text-slate-900 dark:text-white">{r.users?.email || 'N/A'}</TableCell>
                 <TableCell>{r.report_date}</TableCell>
                 <TableCell>
                   <Badge variant={r.status === 'delivered' ? 'success' : r.status === 'failed' ? 'danger' : 'brand'}>
@@ -76,7 +76,7 @@ export default function AdminReportsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-slate-600 dark:text-neutral-400">
                     {r.generated_at ? new Date(r.generated_at).toLocaleString() : 'N/A'}
                   </span>
                 </TableCell>
@@ -84,7 +84,7 @@ export default function AdminReportsPage() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-neutral-400">
+              <TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-neutral-400">
                 {loading ? 'Loading reports...' : 'No reports generated yet.'}
               </TableCell>
             </TableRow>

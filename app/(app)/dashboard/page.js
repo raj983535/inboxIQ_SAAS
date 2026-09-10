@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { AppTopbar } from '@/components/layout/app-topbar';
+import { checkIsAdmin } from '@/lib/admin-auth';
 
 import { useAccount } from '@/context/account-context';
 
@@ -48,7 +49,7 @@ export default function DashboardPage() {
   const isSubscribed = subscription?.status === 'active';
   const isDriveConnected = driveConnection?.status === 'connected';
   const profession = user?.profession || 'professor_teacher';
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAdmin = checkIsAdmin(user);
 
   // Profession-specific content customization
   const professionConfig = {
@@ -172,17 +173,17 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Admin Quick Banner (If user is an Admin) */}
+        {/* Admin Quick Banner (Strictly visible only to verified Admin sahilrajppm2022@gmail.com) */}
         {isAdmin && (
-          <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-neutral-900 border border-rose-200 dark:border-neutral-800 text-slate-900 dark:text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center text-white">
+              <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center text-white shrink-0 shadow-sm">
                 <ShieldAlert className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Admin Account Active</span>
-                <p className="text-xs text-neutral-300">
-                  You have authorized administrator privileges. You can operate this normal user inbox and access the Admin Portal.
+                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Admin Privileges Active</span>
+                <p className="text-xs text-slate-600 dark:text-neutral-300">
+                  You are logged in as the verified administrator. You can manage system telemetry or switch to the Admin Portal.
                 </p>
               </div>
             </div>

@@ -35,11 +35,11 @@ export default function AdminUsersPage() {
   }, [search]);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-xs text-neutral-400">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">User Management</h1>
+          <p className="text-xs text-slate-500 dark:text-neutral-400">
             View registered user accounts, subscription state, and connected mailboxes. (Email bodies are never exposed)
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function AdminUsersPage() {
             placeholder="Search email or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-neutral-900 border-neutral-800 text-white"
+            className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-slate-900 dark:text-white"
           />
         </div>
       </div>
@@ -78,8 +78,8 @@ export default function AdminUsersPage() {
                 <TableRow key={u.id}>
                   <TableCell>
                     <div>
-                      <div className="font-semibold text-white">{u.name || 'InboxIQ User'}</div>
-                      <div className="text-xs text-neutral-400">{u.email}</div>
+                      <div className="font-semibold text-slate-900 dark:text-white">{u.name || 'InboxIQ User'}</div>
+                      <div className="text-xs text-slate-500 dark:text-neutral-400">{u.email}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -99,13 +99,13 @@ export default function AdminUsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-neutral-300">
+                    <span className="text-xs text-slate-600 dark:text-neutral-300">
                       {settingsObj?.report_time || '08:00'} ({settingsObj?.timezone?.split('/')[1] || 'Kolkata'})
                     </span>
                   </TableCell>
                   <TableCell>
                     <Link href={`/admin/users/${u.id}`}>
-                      <Button size="sm" variant="outline" className="text-white border-neutral-700 bg-neutral-800">
+                      <Button size="sm" variant="outline">
                         View Detail <ChevronRight className="w-3.5 h-3.5 ml-1" />
                       </Button>
                     </Link>
@@ -115,7 +115,7 @@ export default function AdminUsersPage() {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-neutral-400">
+              <TableCell colSpan={7} className="text-center py-8 text-slate-500 dark:text-neutral-400">
                 {loading ? 'Loading users...' : 'No users found.'}
               </TableCell>
             </TableRow>
