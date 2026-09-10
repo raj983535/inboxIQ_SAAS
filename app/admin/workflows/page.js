@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GitBranch, RefreshCw } from 'lucide-react';
+import { GitBranch, RefreshCw, Zap, CheckCircle2 } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 export default function AdminWorkflowsPage() {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerNotice, setTriggerNotice] = useState(null);
 
   const fetchWorkflows = async () => {
     setLoading(true);
@@ -25,6 +27,30 @@ export default function AdminWorkflowsPage() {
     }
   };
 
+  const handleRunTestWorkflow = async () => {
+    setTriggering(true);
+    setTriggerNotice(null);
+    try {
+      const res = await fetch('/api/admin/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTriggerNotice(`✓ Test workflow queued! Execution ID: ${data.execution_id}`);
+        fetchWorkflows();
+      } else {
+        setTriggerNotice(`Error: ${data.error?.message || 'Failed to queue test workflow'}`);
+      }
+    } catch (err) {
+      setTriggerNotice(`Network error: ${err.message}`);
+    } finally {
+      setTriggering(false);
+      setTimeout(() => setTriggerNotice(null), 6000);
+    }
+  };
+
   useEffect(() => {
     fetchWorkflows();
   }, []);
@@ -37,10 +63,26 @@ export default function AdminWorkflowsPage() {
           <p className="text-xs text-slate-500 dark:text-neutral-400">
             Monitoring boundary for external n8n automation engine processing runs.
           </p>
+          {triggerNotice && (
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1 animate-in fade-in">
+              {triggerNotice}
+            </p>
+          )}
         </div>
-        <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto">
-          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handleRunTestWorkflow}
+            loading={triggering}
+            className="w-full sm:w-auto text-xs bg-rose-600 hover:bg-rose-700 text-white"
+          >
+            <Zap className="w-3.5 h-3.5 mr-1" /> Run Test Workflow
+          </Button>
+          <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto">
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+          </Button>
+        </div>
       </div>
 
       <Table>
