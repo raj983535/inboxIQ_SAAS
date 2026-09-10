@@ -5,23 +5,58 @@ import { Mail, HardDrive, RefreshCw } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+
+const CACHE_KEY = 'inboxiq_cached_admin_connections';
 
 export default function AdminConnectionsPage() {
-  const [data, setData] = useState({ gmail_connections: [], drive_connections: [] });
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return { gmail_connections: [], drive_connections: [] };
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchConnections = async () => {
-    setLoading(true);
+    if (data.gmail_connections.length === 0 && data.drive_connections.length === 0) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    setError(null);
     try {
       const res = await fetch('/api/admin/connections');
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Failed to load connections (HTTP ${res.status})`);
       }
+      const json = await res.json();
+      setData(json);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(json));
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(json));
+        }
+      } catch (e) {}
     } catch (err) {
-      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -38,10 +73,19 @@ export default function AdminConnectionsPage() {
             Operational status of linked Gmail mailboxes and Google Drive archival targets. (Refresh tokens are encrypted and never shown)
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchConnections} loading={loading} className="w-full sm:w-auto">
-          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={fetchConnections}
+          disabled={loading || isRefreshing}
+          className="w-full sm:w-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Updating...' : 'Refresh'}
         </Button>
       </div>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       {/* Gmail Connections Table */}
       <div className="space-y-3">
@@ -78,7 +122,14 @@ export default function AdminConnectionsPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-6 text-slate-500 dark:text-neutral-400">
-                  {loading ? 'Loading...' : 'No Gmail connections found.'}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                      Loading...
+                    </span>
+                  ) : (
+                    'No Gmail connections found.'
+                  )}
                 </TableCell>
               </TableRow>
             )}
@@ -117,7 +168,14 @@ export default function AdminConnectionsPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-6 text-slate-500 dark:text-neutral-400">
-                  {loading ? 'Loading...' : 'No Google Drive connections found.'}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                      Loading...
+                    </span>
+                  ) : (
+                    'No Google Drive connections found.'
+                  )}
                 </TableCell>
               </TableRow>
             )}

@@ -5,23 +5,59 @@ import { CreditCard, RefreshCw } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+
+const CACHE_KEY = 'inboxiq_cached_admin_subscriptions';
 
 export default function AdminSubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [subscriptions, setSubscriptions] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchSubscriptions = async () => {
-    setLoading(true);
+    if (subscriptions.length === 0) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    setError(null);
     try {
       const res = await fetch('/api/admin/subscriptions');
-      if (res.ok) {
-        const data = await res.json();
-        setSubscriptions(data.subscriptions || []);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Failed to load subscriptions (HTTP ${res.status})`);
       }
+      const data = await res.json();
+      const subList = data.subscriptions || [];
+      setSubscriptions(subList);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(subList));
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(subList));
+        }
+      } catch (e) {}
     } catch (err) {
-      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -38,10 +74,19 @@ export default function AdminSubscriptionsPage() {
             Real-time Razorpay subscription states, active plans, and billing periods.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchSubscriptions} loading={loading} className="w-full sm:w-auto">
-          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={fetchSubscriptions}
+          disabled={loading || isRefreshing}
+          className="w-full sm:w-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Updating...' : 'Refresh'}
         </Button>
       </div>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <Table>
         <TableHead>
@@ -102,7 +147,14 @@ export default function AdminSubscriptionsPage() {
           ) : (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-neutral-400">
-                {loading ? 'Loading subscriptions...' : 'No subscriptions recorded.'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                    Loading subscriptions...
+                  </span>
+                ) : (
+                  'No subscriptions recorded.'
+                )}
               </TableCell>
             </TableRow>
           )}

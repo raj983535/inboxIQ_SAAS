@@ -2,31 +2,69 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Search, ChevronRight, CheckCircle2, Shield, ArrowRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, ChevronRight, RefreshCw } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+
+const CACHE_KEY = 'inboxiq_cached_admin_users';
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchUsers = async () => {
-    setLoading(true);
+    if (users.length === 0) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    setError(null);
     try {
       const url = search ? `/api/admin/users?search=${encodeURIComponent(search)}` : '/api/admin/users';
       const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.users || []);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Failed to load users (HTTP ${res.status})`);
+      }
+      const data = await res.json();
+      const userList = data.users || [];
+      setUsers(userList);
+      // Only cache the full (non-search-filtered) list
+      if (!search) {
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(userList));
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify(userList));
+          }
+        } catch (e) {}
       }
     } catch (err) {
-      console.error('Failed to load users:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -52,6 +90,8 @@ export default function AdminUsersPage() {
           />
         </div>
       </div>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <Table>
         <TableHead>
@@ -116,7 +156,14 @@ export default function AdminUsersPage() {
           ) : (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-slate-500 dark:text-neutral-400">
-                {loading ? 'Loading users...' : 'No users found.'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                    Loading users...
+                  </span>
+                ) : (
+                  'No users found.'
+                )}
               </TableCell>
             </TableRow>
           )}

@@ -1,29 +1,65 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GitBranch, RefreshCw, Zap, CheckCircle2 } from 'lucide-react';
+import { GitBranch, RefreshCw, Zap, CheckCircle2, WifiOff } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+
+const CACHE_KEY = 'inboxiq_cached_admin_workflows';
 
 export default function AdminWorkflowsPage() {
-  const [workflows, setWorkflows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [workflows, setWorkflows] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+        if (cached) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   const [triggering, setTriggering] = useState(false);
   const [triggerNotice, setTriggerNotice] = useState(null);
 
   const fetchWorkflows = async () => {
-    setLoading(true);
+    if (workflows.length === 0) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    setError(null);
     try {
       const res = await fetch('/api/admin/workflows');
-      if (res.ok) {
-        const json = await res.json();
-        setWorkflows(json.workflows || []);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Failed to load workflows (HTTP ${res.status})`);
       }
+      const json = await res.json();
+      const data = json.workflows || [];
+      setWorkflows(data);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        }
+      } catch (e) {}
     } catch (err) {
-      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -79,11 +115,20 @@ export default function AdminWorkflowsPage() {
           >
             <Zap className="w-3.5 h-3.5 mr-1" /> Run Test Workflow
           </Button>
-          <Button size="sm" variant="outline" onClick={fetchWorkflows} loading={loading} className="w-full sm:w-auto">
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={fetchWorkflows}
+            disabled={loading || isRefreshing}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Updating...' : 'Refresh'}
           </Button>
         </div>
       </div>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <Table>
         <TableHead>
@@ -125,7 +170,14 @@ export default function AdminWorkflowsPage() {
           ) : (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8 text-slate-500 dark:text-neutral-400">
-                {loading ? 'Loading workflow logs...' : 'No workflow executions recorded.'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
+                    Loading workflow logs...
+                  </span>
+                ) : (
+                  'No workflow executions recorded yet.'
+                )}
               </TableCell>
             </TableRow>
           )}
