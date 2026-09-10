@@ -70,7 +70,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, profession, country, gender }),
+        body: JSON.stringify({ name, email }),
       });
 
       if (!res.ok) {
@@ -194,15 +194,20 @@ export default function SettingsPage() {
 
               {/* Editable One-Time Registration Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                {/* Profession (Editable) */}
+                {/* Profession (Immutable) */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
-                    Profession
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                      Profession
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                      <Lock className="w-2.5 h-2.5" /> Fixed
+                    </span>
+                  </div>
                   <select
                     value={profession}
-                    onChange={(e) => setProfession(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    disabled
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 cursor-not-allowed opacity-80"
                   >
                     <option value="professor_teacher">Professor / Teacher</option>
                     <option value="student">Student</option>
@@ -210,15 +215,20 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
-                {/* Country (Editable) */}
+                {/* Country (Immutable) */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
-                    Country
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                      Country
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                      <Lock className="w-2.5 h-2.5" /> Fixed
+                    </span>
+                  </div>
                   <select
                     value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    disabled
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 cursor-not-allowed opacity-80"
                   >
                     <option value="India">India</option>
                     <option value="United States">United States</option>
@@ -234,15 +244,20 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
-                {/* Gender (Editable) */}
+                {/* Gender (Immutable) */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
-                    Gender
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                      Gender
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+                      <Lock className="w-2.5 h-2.5" /> Fixed
+                    </span>
+                  </div>
                   <select
                     value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    disabled
+                    className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 cursor-not-allowed opacity-80"
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -253,7 +268,7 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <div className="text-xs text-neutral-400">Updates will adjust your AI briefing persona and subscription tier.</div>
+              <div className="text-xs text-neutral-400">Name and email updates take effect immediately. Registration attributes are fixed.</div>
               <Button type="submit" loading={savingProfile} variant="primary" size="sm">
                 <Save className="w-3.5 h-3.5 mr-1" /> Save Profile
               </Button>
