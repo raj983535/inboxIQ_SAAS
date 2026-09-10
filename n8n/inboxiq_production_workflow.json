@@ -17,25 +17,7 @@
         240
       ]
     },
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "hours"
-            }
-          ]
-        }
-      },
-      "id": "node-2-hourly-dispatcher",
-      "name": "2. Hourly Schedule Dispatcher",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        160,
-        480
-      ]
-    },
+
     {
       "parameters": {
         "respondWith": "json",
@@ -469,17 +451,7 @@
         ]
       ]
     },
-    "2. Hourly Schedule Dispatcher": {
-      "main": [
-        [
-          {
-            "node": "4. Normalize & 24H Window",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+
     "4. Normalize & 24H Window": {
       "main": [
         [
