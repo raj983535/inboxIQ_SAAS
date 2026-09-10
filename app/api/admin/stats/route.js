@@ -6,10 +6,30 @@ import { generateCorrelationId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+let cachedStats = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 15000; // 15 seconds in-memory server cache
+
+export async function GET(request) {
   const correlationId = generateCorrelationId();
   try {
     await getAuthenticatedAdmin();
+
+    const { searchParams } = new URL(request.url);
+    const forceFresh = searchParams.get('fresh') === 'true';
+
+    // Return cached stats if valid and fresh not requested
+    if (!forceFresh && cachedStats && Date.now() - lastCacheTime < CACHE_TTL_MS) {
+      return NextResponse.json({
+        success: true,
+        cached: true,
+        stats: cachedStats,
+      }, {
+        headers: {
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
+        },
+      });
+    }
 
     // Execute all 12 stats queries in parallel
     const [
@@ -40,21 +60,31 @@ export async function GET() {
       supabaseAdmin.from('system_errors').select('*', { count: 'exact', head: true }).eq('error_status', 'unresolved'),
     ]);
 
+    const newStats = {
+      totalUsers: totalUsers || 0,
+      activeUsers: activeUsers || 0,
+      activeSubscriptions: activeSubscriptions || 0,
+      inactiveSubscriptions: inactiveSubscriptions || 0,
+      totalGmailConnections: totalGmailConnections || 0,
+      totalDriveConnections: totalDriveConnections || 0,
+      reportsDelivered: reportsDelivered || 0,
+      reportsArchived: reportsArchived || 0,
+      reportsFailed: reportsFailed || 0,
+      workflowFailed: workflowFailed || 0,
+      workflowProcessing: workflowProcessing || 0,
+      unresolvedErrors: unresolvedErrors || 0,
+    };
+
+    cachedStats = newStats;
+    lastCacheTime = Date.now();
+
     return NextResponse.json({
       success: true,
-      stats: {
-        totalUsers: totalUsers || 0,
-        activeUsers: activeUsers || 0,
-        activeSubscriptions: activeSubscriptions || 0,
-        inactiveSubscriptions: inactiveSubscriptions || 0,
-        totalGmailConnections: totalGmailConnections || 0,
-        totalDriveConnections: totalDriveConnections || 0,
-        reportsDelivered: reportsDelivered || 0,
-        reportsArchived: reportsArchived || 0,
-        reportsFailed: reportsFailed || 0,
-        workflowFailed: workflowFailed || 0,
-        workflowProcessing: workflowProcessing || 0,
-        unresolvedErrors: unresolvedErrors || 0,
+      cached: false,
+      stats: newStats,
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=30',
       },
     });
   } catch (error) {

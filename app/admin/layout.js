@@ -34,7 +34,7 @@ export default function AdminLayout({ children }) {
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        const cached = localStorage.getItem('inboxiq_cached_account') || sessionStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (checkIsAdmin(parsed?.user)) return true;
@@ -47,7 +47,7 @@ export default function AdminLayout({ children }) {
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        const cached = localStorage.getItem('inboxiq_cached_account') || sessionStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (checkIsAdmin(parsed?.user)) return false;
@@ -97,6 +97,7 @@ export default function AdminLayout({ children }) {
               if (hasAdmin) {
                 setIsAdmin(true);
                 try {
+                  localStorage.setItem('inboxiq_cached_account', JSON.stringify(data));
                   sessionStorage.setItem('inboxiq_cached_account', JSON.stringify(data));
                 } catch (e) {}
               } else {

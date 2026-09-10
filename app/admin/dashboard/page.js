@@ -20,49 +20,66 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 
+// Module-level in-memory cache to guarantee zero-millisecond render across tab navigation
+let inMemoryStatsCache = null;
+
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(() => {
+    if (inMemoryStatsCache) return inMemoryStatsCache;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('inboxiq_cached_admin_stats') || sessionStorage.getItem('inboxiq_cached_admin_stats');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          inMemoryStatsCache = parsed;
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => !stats && !inMemoryStatsCache);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Read cached stats immediately
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = sessionStorage.getItem('inboxiq_cached_admin_stats');
-        if (cached) {
-          setStats(JSON.parse(cached));
-          setLoading(false);
-        }
-      }
-    } catch (e) {}
-  }, []);
-
-  const fetchStats = async () => {
-    if (!stats) setLoading(true);
+  const fetchStats = async (forceFresh = false) => {
+    if (!stats && !inMemoryStatsCache) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     setError(null);
+
     try {
-      const res = await fetch('/api/admin/stats');
+      const url = forceFresh ? '/api/admin/stats?fresh=true' : '/api/admin/stats';
+      const res = await fetch(url);
       if (!res.ok) {
         const json = await res.json();
         throw new Error(json.error?.message || 'Failed to load admin statistics.');
       }
       const data = await res.json();
-      setStats(data.stats);
-      try {
-        if (typeof window !== 'undefined' && data.stats) {
-          sessionStorage.setItem('inboxiq_cached_admin_stats', JSON.stringify(data.stats));
-        }
-      } catch (e) {}
+      if (data?.stats) {
+        inMemoryStatsCache = data.stats;
+        setStats(data.stats);
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('inboxiq_cached_admin_stats', JSON.stringify(data.stats));
+            sessionStorage.setItem('inboxiq_cached_admin_stats', JSON.stringify(data.stats));
+          }
+        } catch (e) {}
+      }
     } catch (err) {
+      // If we already had stats on screen, don't wipe them on background fetch error
       setError(err.message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchStats(false);
   }, []);
 
   return (
@@ -79,8 +96,15 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={fetchStats} loading={loading}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchStats(true)}
+            disabled={loading || isRefreshing}
+            className="text-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? 'animate-spin text-rose-500' : ''}`} />
+            {isRefreshing ? 'Updating...' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -96,9 +120,19 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold uppercase tracking-wider">Total Users</span>
               <Users className="w-4 h-4 text-blue-500 dark:text-blue-400" />
             </div>
-            <div className="text-3xl font-black text-slate-900 dark:text-white">{stats ? stats.totalUsers : '—'}</div>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
-              {stats ? `${stats.activeUsers} Active` : 'Loading...'}
+            <div className="text-3xl font-black text-slate-900 dark:text-white">
+              {stats ? (
+                stats.totalUsers.toLocaleString()
+              ) : (
+                <span className="inline-block h-8 w-16 bg-slate-200 dark:bg-neutral-800 animate-pulse rounded mt-1" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400 min-h-[16px]">
+              {stats ? (
+                `${stats.activeUsers} Active`
+              ) : (
+                <span className="inline-block h-3.5 w-20 bg-slate-100 dark:bg-neutral-800/60 animate-pulse rounded" />
+              )}
             </p>
           </CardContent>
         </Card>
@@ -110,9 +144,19 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold uppercase tracking-wider">Active Subscriptions</span>
               <CreditCard className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
             </div>
-            <div className="text-3xl font-black text-slate-900 dark:text-white">{stats ? stats.activeSubscriptions : '—'}</div>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
-              {stats ? `₹499/mo (${stats.inactiveSubscriptions} Inactive)` : 'Loading...'}
+            <div className="text-3xl font-black text-slate-900 dark:text-white">
+              {stats ? (
+                stats.activeSubscriptions.toLocaleString()
+              ) : (
+                <span className="inline-block h-8 w-16 bg-slate-200 dark:bg-neutral-800 animate-pulse rounded mt-1" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400 min-h-[16px]">
+              {stats ? (
+                `₹499/mo (${stats.inactiveSubscriptions} Inactive)`
+              ) : (
+                <span className="inline-block h-3.5 w-28 bg-slate-100 dark:bg-neutral-800/60 animate-pulse rounded" />
+              )}
             </p>
           </CardContent>
         </Card>
@@ -124,9 +168,19 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold uppercase tracking-wider">Reports Delivered</span>
               <FileText className="w-4 h-4 text-purple-500 dark:text-purple-400" />
             </div>
-            <div className="text-3xl font-black text-slate-900 dark:text-white">{stats ? stats.reportsDelivered : '—'}</div>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
-              {stats ? `${stats.reportsArchived} Drive PDFs archived` : 'Loading...'}
+            <div className="text-3xl font-black text-slate-900 dark:text-white">
+              {stats ? (
+                stats.reportsDelivered.toLocaleString()
+              ) : (
+                <span className="inline-block h-8 w-16 bg-slate-200 dark:bg-neutral-800 animate-pulse rounded mt-1" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400 min-h-[16px]">
+              {stats ? (
+                `${stats.reportsArchived} Drive PDFs archived`
+              ) : (
+                <span className="inline-block h-3.5 w-32 bg-slate-100 dark:bg-neutral-800/60 animate-pulse rounded" />
+              )}
             </p>
           </CardContent>
         </Card>
@@ -138,9 +192,19 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold uppercase tracking-wider">Failures &amp; Errors</span>
               <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />
             </div>
-            <div className="text-3xl font-black text-rose-600 dark:text-rose-400">{stats ? stats.unresolvedErrors : '—'}</div>
-            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
-              {stats ? `${stats.workflowFailed} Workflow errors` : 'Loading...'}
+            <div className="text-3xl font-black text-rose-600 dark:text-rose-400">
+              {stats ? (
+                stats.unresolvedErrors.toLocaleString()
+              ) : (
+                <span className="inline-block h-8 w-16 bg-slate-200 dark:bg-neutral-800 animate-pulse rounded mt-1" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400 min-h-[16px]">
+              {stats ? (
+                `${stats.workflowFailed} Workflow errors`
+              ) : (
+                <span className="inline-block h-3.5 w-28 bg-slate-100 dark:bg-neutral-800/60 animate-pulse rounded" />
+              )}
             </p>
           </CardContent>
         </Card>
