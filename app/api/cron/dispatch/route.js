@@ -108,108 +108,138 @@ export async function GET(req) {
       });
     }
 
-    // 4. Dispatch for each eligible user
-    const dispatchResults = [];
+    // 4. High-Scale Bulk Prefetching (Replaces 300+ round trips with 3 batched queries)
+    const scheduledUserIds = usersToProcess.map((u) => u.user_id);
 
-    for (const target of usersToProcess) {
-      let localDate = new Date().toISOString().split('T')[0];
-      try {
-        const dFmt = new Intl.DateTimeFormat('en-CA', { timeZone: target.timezone });
-        localDate = dFmt.format(new Date());
-      } catch (e) {
-        // fallback
-      }
-
-      // Check idempotency: If report already delivered today, skip!
-      const { data: existingReport } = await supabaseAdmin
-        .from('reports')
-        .select('id, status, email_delivery_status')
-        .eq('user_id', target.user_id)
-        .eq('report_date', localDate)
-        .maybeSingle();
-
-      if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
-        dispatchResults.push({
-          user_id: target.user_id,
-          user_email: target.user_email,
-          status: 'skipped',
-          reason: 'Daily report already delivered today',
-        });
-        continue;
-      }
-
-      const { data: gmailConns } = await supabaseAdmin
+    const [{ data: allGmailConns }, { data: allDriveConns }, { data: allExistingReports }] = await Promise.all([
+      supabaseAdmin
         .from('gmail_connections')
-        .select('id, connection_slot, account_email, status')
-        .eq('user_id', target.user_id)
-        .eq('status', 'connected');
-
-      const { data: driveConn } = await supabaseAdmin
+        .select('id, user_id, connection_slot, account_email, status')
+        .in('user_id', scheduledUserIds)
+        .eq('status', 'connected'),
+      supabaseAdmin
         .from('google_drive_connections')
-        .select('id, account_email, reports_folder_id, status')
-        .eq('user_id', target.user_id)
-        .eq('status', 'connected')
-        .maybeSingle();
+        .select('id, user_id, account_email, reports_folder_id, status')
+        .in('user_id', scheduledUserIds)
+        .eq('status', 'connected'),
+      supabaseAdmin
+        .from('reports')
+        .select('id, user_id, report_date, status, email_delivery_status')
+        .in('user_id', scheduledUserIds),
+    ]);
 
-      const executionId = generateExecutionId();
+    // Build O(1) in-memory lookup maps
+    const gmailMap = new Map();
+    for (const g of allGmailConns || []) {
+      const list = gmailMap.get(g.user_id) || [];
+      list.push(g);
+      gmailMap.set(g.user_id, list);
+    }
 
-      await supabaseAdmin.from('reports').upsert(
-        {
-          user_id: target.user_id,
-          report_date: localDate,
-          report_type: 'daily',
-          status: 'queued',
-          email_delivery_status: 'pending',
-          drive_upload_status: 'pending',
-        },
-        { onConflict: 'user_id,report_date,report_type' }
+    const driveMap = new Map();
+    for (const d of allDriveConns || []) {
+      driveMap.set(d.user_id, d);
+    }
+
+    const reportMap = new Map();
+    for (const r of allExistingReports || []) {
+      reportMap.set(`${r.user_id}_${r.report_date}`, r);
+    }
+
+    // 5. Concurrent Chunk Dispatching (Handles 100+ users safely without Vercel timeouts)
+    const dispatchResults = [];
+    const CHUNK_SIZE = 10; // 10 parallel dispatches per chunk
+
+    for (let i = 0; i < usersToProcess.length; i += CHUNK_SIZE) {
+      const batch = usersToProcess.slice(i, i + CHUNK_SIZE);
+
+      await Promise.all(
+        batch.map(async (target) => {
+          let localDate = new Date().toISOString().split('T')[0];
+          try {
+            const dFmt = new Intl.DateTimeFormat('en-CA', { timeZone: target.timezone });
+            localDate = dFmt.format(new Date());
+          } catch (e) {
+            // fallback to UTC
+          }
+
+          // Idempotency check via in-memory map
+          const existingReport = reportMap.get(`${target.user_id}_${localDate}`);
+          if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'skipped',
+              reason: 'Daily report already delivered today',
+            });
+            return;
+          }
+
+          const userGmailConns = gmailMap.get(target.user_id) || [];
+          const userDriveConn = driveMap.get(target.user_id) || null;
+          const executionId = generateExecutionId();
+
+          // Prepare database state for execution
+          await Promise.all([
+            supabaseAdmin.from('reports').upsert(
+              {
+                user_id: target.user_id,
+                report_date: localDate,
+                report_type: 'daily',
+                status: 'queued',
+                email_delivery_status: 'pending',
+                drive_upload_status: 'pending',
+              },
+              { onConflict: 'user_id,report_date,report_type' }
+            ),
+            supabaseAdmin.from('workflow_executions').insert({
+              execution_id: executionId,
+              user_id: target.user_id,
+              correlation_id: correlationId,
+              status: 'queued',
+              started_at: new Date().toISOString(),
+            }),
+          ]);
+
+          try {
+            const n8nRes = await triggerN8nWorkflow({
+              userId: target.user_id,
+              userEmail: target.user_email,
+              profession: target.profession,
+              country: target.country,
+              reportTime: target.report_time,
+              timezone: target.timezone,
+              gmailConnections: userGmailConns,
+              driveConnection: userDriveConn,
+              reportDate: localDate,
+            });
+
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'dispatched',
+              execution_id: executionId,
+              n8n_response: n8nRes.response,
+            });
+          } catch (dispatchErr) {
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'failed',
+              error: dispatchErr.message,
+            });
+          }
+        })
       );
-
-      await supabaseAdmin.from('workflow_executions').insert({
-        execution_id: executionId,
-        user_id: target.user_id,
-        correlation_id: correlationId,
-        status: 'queued',
-        started_at: new Date().toISOString(),
-      });
-
-      try {
-        const n8nRes = await triggerN8nWorkflow({
-          userId: target.user_id,
-          userEmail: target.user_email,
-          profession: target.profession,
-          country: target.country,
-          reportTime: target.report_time,
-          timezone: target.timezone,
-          gmailConnections: gmailConns || [],
-          driveConnection: driveConn || null,
-          reportDate: localDate,
-        });
-
-        dispatchResults.push({
-          user_id: target.user_id,
-          user_email: target.user_email,
-          status: 'dispatched',
-          execution_id: executionId,
-          n8n_response: n8nRes.response,
-        });
-      } catch (dispatchErr) {
-        dispatchResults.push({
-          user_id: target.user_id,
-          user_email: target.user_email,
-          status: 'failed',
-          error: dispatchErr.message,
-        });
-      }
     }
 
     return NextResponse.json({
       success: true,
       guard: 'active',
       total_eligible: usersToProcess.length,
-      dispatched: dispatchResults.filter(r => r.status === 'dispatched').length,
-      skipped: dispatchResults.filter(r => r.status === 'skipped').length,
-      failed: dispatchResults.filter(r => r.status === 'failed').length,
+      dispatched: dispatchResults.filter((r) => r.status === 'dispatched').length,
+      skipped: dispatchResults.filter((r) => r.status === 'skipped').length,
+      failed: dispatchResults.filter((r) => r.status === 'failed').length,
       results: dispatchResults,
       duration_ms: Date.now() - startTime,
       timestamp: new Date().toISOString(),

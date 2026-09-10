@@ -79,7 +79,8 @@ export async function GET(req) {
         gmail_connections (id, connection_slot, status),
         google_drive_connections (id, status)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (search) {
       query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`);
@@ -106,6 +107,11 @@ export async function GET(req) {
     return NextResponse.json({
       success: true,
       users: normalizedUsers,
+      total_count: normalizedUsers.length,
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
+      },
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
