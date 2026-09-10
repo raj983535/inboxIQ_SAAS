@@ -37,8 +37,36 @@ export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/admin/login';
-  const [isAdmin, setIsAdmin] = useState(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Synchronous initialization from cache prevents flashes/sign-in jumps during tab switching
+  const [isAdmin, setIsAdmin] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const role = parsed?.user?.role;
+          if (role === 'admin' || role === 'super_admin') return true;
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const role = parsed?.user?.role;
+          if (role === 'admin' || role === 'super_admin') return false;
+        }
+      } catch (e) {}
+    }
+    return true;
+  });
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -59,44 +87,45 @@ export default function AdminLayout({ children }) {
       return;
     }
 
-    // Instant SWR authorization check from cached session
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = sessionStorage.getItem('inboxiq_cached_account');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const role = parsed?.user?.role;
-          if (role === 'admin' || role === 'super_admin') {
-            setIsAdmin(true);
-            setLoading(false);
-          }
-        }
-      }
-    } catch (e) {}
+    let isMounted = true;
 
     async function checkAdminAuth() {
       try {
         const res = await fetch('/api/account');
         if (!res.ok) {
-          setIsAdmin(false);
+          if (isMounted) setIsAdmin(false);
           return;
         }
         const data = await res.json();
         const role = data.user?.role;
         if (role === 'admin' || role === 'super_admin') {
-          setIsAdmin(true);
+          if (isMounted) {
+            setIsAdmin(true);
+            try {
+              sessionStorage.setItem('inboxiq_cached_account', JSON.stringify(data));
+            } catch (e) {}
+          }
         } else {
-          setIsAdmin(false);
-          setTimeout(() => router.push('/dashboard'), 2500);
+          if (isMounted) {
+            setIsAdmin(false);
+            setTimeout(() => router.push('/dashboard'), 2500);
+          }
         }
       } catch (err) {
-        setIsAdmin(false);
+        // If already validated from cache, do not kick out on transient fetch glitch
+        if (isMounted && isAdmin === null) {
+          setIsAdmin(false);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     checkAdminAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isLoginPage, router]);
 
   if (isLoginPage) {

@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { useAccount } from '@/context/account-context';
-import { IANA_TIMEZONES } from '@/lib/utils';
+import { IANA_TIMEZONES, DELIVERY_TIME_OPTIONS } from '@/lib/utils';
 import { AppTopbar } from '@/components/layout/app-topbar';
 import { getPlanForProfession } from '@/lib/pricing';
 
@@ -399,11 +399,11 @@ export default function OnboardingPage() {
                       onChange={(e) => setReportTime(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
                     >
-                      <option value="06:00">06:00 AM (Early Bird)</option>
-                      <option value="07:00">07:00 AM</option>
-                      <option value="08:00">08:00 AM (Recommended)</option>
-                      <option value="09:00">09:00 AM</option>
-                      <option value="10:00">10:00 AM</option>
+                      {DELIVERY_TIME_OPTIONS.map((timeOpt) => (
+                        <option key={timeOpt.value} value={timeOpt.value}>
+                          {timeOpt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

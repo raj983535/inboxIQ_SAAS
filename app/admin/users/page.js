@@ -68,8 +68,12 @@ export default function AdminUsersPage() {
         <TableBody>
           {users.length > 0 ? (
             users.map((u) => {
-              const gmailActive = u.gmail_connections?.filter((c) => c.status === 'connected')?.length || 0;
-              const isSubscribed = u.subscriptions?.[0]?.status === 'active';
+              const gmailActive = (u.gmail_connections || []).filter((c) => c.status === 'connected').length;
+              const subObj = u.subscription || (Array.isArray(u.subscriptions) ? u.subscriptions[0] : u.subscriptions);
+              const isSubscribed = subObj?.status === 'active';
+              const driveObj = u.drive_connection || (Array.isArray(u.google_drive_connections) ? u.google_drive_connections[0] : u.google_drive_connections);
+              const settingsObj = u.user_settings && !Array.isArray(u.user_settings) ? u.user_settings : (u.user_settings?.[0] || null);
+
               return (
                 <TableRow key={u.id}>
                   <TableCell>
@@ -83,20 +87,20 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={isSubscribed ? 'success' : 'warning'}>
-                      {u.subscriptions?.[0]?.status || 'inactive'}
+                      {subObj?.status || 'inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-xs font-mono">{gmailActive} / 2 Connected</span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={u.google_drive_connections?.[0]?.status === 'connected' ? 'purple' : 'default'}>
-                      {u.google_drive_connections?.[0]?.status === 'connected' ? 'Linked' : 'None'}
+                    <Badge variant={driveObj?.status === 'connected' ? 'purple' : 'default'}>
+                      {driveObj?.status === 'connected' ? 'Linked' : 'None'}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-xs text-neutral-300">
-                      {u.user_settings?.[0]?.report_time || '08:00'} ({u.user_settings?.[0]?.timezone?.split('/')[1] || 'Kolkata'})
+                      {settingsObj?.report_time || '08:00'} ({settingsObj?.timezone?.split('/')[1] || 'Kolkata'})
                     </span>
                   </TableCell>
                   <TableCell>

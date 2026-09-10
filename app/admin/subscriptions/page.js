@@ -70,7 +70,27 @@ export default function AdminSubscriptionsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <span className="font-mono text-xs">{sub.razorpay_subscription_id || '—'}</span>
+                  {sub.razorpay_subscription_id ? (
+                    <div>
+                      <span className="font-mono text-xs text-emerald-400">{sub.razorpay_subscription_id}</span>
+                      <div className="text-[10px] text-neutral-500">Subscription ID</div>
+                    </div>
+                  ) : sub.razorpay_order_id ? (
+                    <div>
+                      <span className="font-mono text-xs text-blue-400">{sub.razorpay_order_id}</span>
+                      <div className="text-[10px] text-neutral-500">Order ID</div>
+                    </div>
+                  ) : sub.razorpay_payment_id ? (
+                    <div>
+                      <span className="font-mono text-xs text-amber-400">{sub.razorpay_payment_id}</span>
+                      <div className="text-[10px] text-neutral-500">Payment ID</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-mono text-xs text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
+                      <div className="text-[10px] text-purple-400">System / Admin Tier</div>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className="text-xs text-neutral-400">

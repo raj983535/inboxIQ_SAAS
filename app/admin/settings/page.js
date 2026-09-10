@@ -49,8 +49,8 @@ export default function AdminSettingsPage() {
               </div>
               <div className="p-4 rounded-xl bg-neutral-800/60 border border-neutral-700/60 space-y-1">
                 <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Briefing Delivery Window</div>
-                <div className="text-xl font-bold text-white">06:00 AM – 10:00 AM</div>
-                <p className="text-[11px] text-neutral-400 pt-1">Multi-timezone automated cron trigger intervals</p>
+                <div className="text-xl font-bold text-white">24-Hour Continuous</div>
+                <p className="text-[11px] text-neutral-400 pt-1">User selectable across all 24 hours (00:00 - 23:00) with timezone precision</p>
               </div>
             </div>
 

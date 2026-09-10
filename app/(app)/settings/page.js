@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
-import { IANA_TIMEZONES } from '@/lib/utils';
+import { IANA_TIMEZONES, DELIVERY_TIME_OPTIONS } from '@/lib/utils';
 import { AppTopbar } from '@/components/layout/app-topbar';
 
 import { useAccount } from '@/context/account-context';
@@ -281,11 +281,11 @@ export default function SettingsPage() {
                     onChange={(e) => setReportTime(e.target.value)}
                     className="w-full px-3.5 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="06:00">06:00 AM</option>
-                    <option value="07:00">07:00 AM</option>
-                    <option value="08:00">08:00 AM (Recommended)</option>
-                    <option value="09:00">09:00 AM</option>
-                    <option value="10:00">10:00 AM</option>
+                    {DELIVERY_TIME_OPTIONS.map((timeOpt) => (
+                      <option key={timeOpt.value} value={timeOpt.value}>
+                        {timeOpt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

@@ -22,6 +22,7 @@ export async function GET() {
         currency,
         razorpay_subscription_id,
         razorpay_order_id,
+        razorpay_payment_id,
         status,
         current_period_start,
         current_period_end,

@@ -85,12 +85,27 @@ export async function GET(req) {
       query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`);
     }
 
-    const { data: users, error } = await query;
+    const { data: rawUsers, error } = await query;
     if (error) throw error;
+
+    const normalizedUsers = (rawUsers || []).map((u) => {
+      const setting = Array.isArray(u.user_settings) ? u.user_settings[0] : u.user_settings;
+      const sub = Array.isArray(u.subscriptions) ? u.subscriptions[0] : u.subscriptions;
+      const drive = Array.isArray(u.google_drive_connections) ? u.google_drive_connections[0] : u.google_drive_connections;
+      const gmailList = Array.isArray(u.gmail_connections) ? u.gmail_connections : (u.gmail_connections ? [u.gmail_connections] : []);
+
+      return {
+        ...u,
+        user_settings: setting || null,
+        subscription: sub || null,
+        drive_connection: drive || null,
+        gmail_connections: gmailList,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      users: users || [],
+      users: normalizedUsers,
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
