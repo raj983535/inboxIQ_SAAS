@@ -30,27 +30,32 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const isLoginPage = pathname === '/admin/login';
   
-  // Synchronous initialization from cache
+  // Strict Admin state: NEVER assume true from localStorage/cache.
+  // We strictly initialize as false or null, ensuring no non-admin ever sees even 1ms of admin UI.
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('inboxiq_cached_account') || sessionStorage.getItem('inboxiq_cached_account');
+        const cached = sessionStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (checkIsAdmin(parsed?.user)) return true;
+          if (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email)) {
+            return true;
+          }
         }
       } catch (e) {}
     }
-    return null;
+    return false;
   });
 
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('inboxiq_cached_account') || sessionStorage.getItem('inboxiq_cached_account');
+        const cached = sessionStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (checkIsAdmin(parsed?.user)) return false;
+          if (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email)) {
+            return false;
+          }
         }
       } catch (e) {}
     }
@@ -92,19 +97,23 @@ export default function AdminLayout({ children }) {
 
           if (res.ok) {
             const data = await res.json();
-            const hasAdmin = checkIsAdmin(data?.user);
+            const userEmail = data?.user?.email;
+            const hasAdmin = userEmail && isAuthorizedAdminEmail(userEmail);
+
             if (isMounted) {
               if (hasAdmin) {
                 setIsAdmin(true);
+                setLoading(false);
                 try {
                   localStorage.setItem('inboxiq_cached_account', JSON.stringify(data));
                   sessionStorage.setItem('inboxiq_cached_account', JSON.stringify(data));
                 } catch (e) {}
               } else {
                 setIsAdmin(false);
-                setTimeout(() => router.push('/dashboard'), 2000);
+                setLoading(false);
+                // INSTANT REDIRECT: Zero flash, zero delay. Non-admins are bounced immediately.
+                router.replace('/dashboard');
               }
-              setLoading(false);
             }
             return;
           }
@@ -119,9 +128,9 @@ export default function AdminLayout({ children }) {
             setIsAdmin(false);
             setLoading(false);
             if (res.status === 401) {
-              router.push('/admin/login');
+              router.replace('/admin/login');
             } else {
-              setTimeout(() => router.push('/dashboard'), 2000);
+              router.replace('/dashboard');
             }
           }
           return;
@@ -131,10 +140,9 @@ export default function AdminLayout({ children }) {
             continue;
           }
           if (isMounted) {
-            if (isAdmin !== true) {
-              setIsAdmin(false);
-            }
+            setIsAdmin(false);
             setLoading(false);
+            router.replace('/dashboard');
           }
         }
       }
@@ -160,7 +168,7 @@ export default function AdminLayout({ children }) {
     );
   }
 
-  if (isAdmin === false) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-6 text-slate-900 dark:text-white shadow-2xl">

@@ -101,17 +101,12 @@ export function PublicFooter() {
             </ul>
           </div>
 
-          {/* System & Administration */}
+          {/* System Status */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-200 mb-3">
               System
             </h4>
             <ul className="space-y-2 text-xs md:text-sm">
-              <li>
-                <Link href="/admin/login" className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1">
-                  Admin Portal <ExternalLink className="w-3 h-3" />
-                </Link>
-              </li>
               <li>
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">● Systems Operational</span>
               </li>
