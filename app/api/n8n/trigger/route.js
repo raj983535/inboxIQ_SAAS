@@ -19,17 +19,18 @@ export async function POST(req) {
     // 1. Subscription & Authorization Check
     const { data: subscriptions } = await supabaseAdmin
       .from('subscriptions')
-      .select('status, current_period_end')
+      .select('status, current_period_end, trial_ends_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(1);
 
     const subscription = subscriptions?.[0] || null;
 
+    const trialEnd = subscription?.trial_ends_at || subscription?.current_period_end;
     const hasValidTrial =
       (subscription?.status === 'trialing' || subscription?.status === 'created') &&
-      subscription?.trial_ends_at &&
-      new Date(subscription.trial_ends_at) > new Date();
+      trialEnd &&
+      new Date(trialEnd) > new Date();
 
     const isAllowed = subscription?.status === 'active' ||
       hasValidTrial ||

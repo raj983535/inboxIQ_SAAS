@@ -37,6 +37,7 @@ export async function GET(req) {
         user_id,
         status,
         current_period_end,
+        trial_ends_at,
         users!inner (
           id,
           email,
@@ -63,6 +64,14 @@ export async function GET(req) {
       const settingsMap = new Map((settingsList || []).map(s => [s.user_id, s]));
 
       for (const sub of subs) {
+        // Skip expired trials
+        if (sub.status === 'trialing' || sub.status === 'created') {
+          const trialEnd = sub.trial_ends_at || sub.current_period_end;
+          if (!trialEnd || new Date(trialEnd) <= new Date()) {
+            continue;
+          }
+        }
+
         const user = sub.users;
         const userSetting = settingsMap.get(user.id);
         const reportTime = userSetting?.report_time || '08:00';

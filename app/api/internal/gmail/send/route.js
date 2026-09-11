@@ -52,10 +52,11 @@ export async function POST(req) {
       .eq('user_id', user_id)
       .maybeSingle();
 
+    const trialEnd = subData?.trial_ends_at || subData?.current_period_end;
     const hasValidTrial =
       (subData?.status === 'trialing' || subData?.status === 'created') &&
-      subData?.trial_ends_at &&
-      new Date(subData.trial_ends_at) > new Date();
+      trialEnd &&
+      new Date(trialEnd) > new Date();
 
     const isSubActive =
       subData?.status === 'active' ||
