@@ -221,6 +221,8 @@ export async function GET(req) {
               gmailConnections: userGmailConns,
               driveConnection: userDriveConn,
               reportDate: localDate,
+              executionId: executionId,
+              correlationId: correlationId,
             });
 
             dispatchResults.push({

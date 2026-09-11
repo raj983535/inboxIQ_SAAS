@@ -117,6 +117,8 @@ export async function POST(req) {
         gmailConnections: gmailConns || [],
         driveConnection: driveConn || null,
         reportDate: today,
+        executionId: executionId,
+        correlationId: correlationId,
       });
       n8nDispatched = true;
     } catch (err) {

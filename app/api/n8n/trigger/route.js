@@ -113,6 +113,8 @@ export async function POST(req) {
         gmailConnections,
         driveConnection: driveConn,
         reportDate: today,
+        executionId: executionId,
+        correlationId: correlationId,
       });
     } catch (n8nErr) {
       console.warn('n8n external dispatch notice (instance may be offline in dev):', n8nErr.message);

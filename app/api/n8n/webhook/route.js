@@ -53,7 +53,7 @@ export async function POST(req) {
     }
 
     // 2. Update workflow_executions table
-    await supabaseAdmin
+    const { data: updatedExec } = await supabaseAdmin
       .from('workflow_executions')
       .update({
         status: status === 'partial' ? 'completed' : status,
@@ -63,7 +63,41 @@ export async function POST(req) {
         error_category: error_category || null,
         error_message: error_message || null,
       })
-      .eq('execution_id', execution_id);
+      .eq('execution_id', execution_id)
+      .select('id');
+
+    if (!updatedExec || updatedExec.length === 0) {
+      // Fallback: update latest queued execution for this user
+      const { data: fallbackUpdated } = await supabaseAdmin
+        .from('workflow_executions')
+        .update({
+          execution_id: execution_id,
+          status: status === 'partial' ? 'completed' : status,
+          completed_at: new Date().toISOString(),
+          duration_ms: duration_ms,
+          emails_processed: emails_processed,
+          error_category: error_category || null,
+          error_message: error_message || null,
+        })
+        .eq('user_id', user_id)
+        .eq('status', 'queued')
+        .select('id');
+
+      if (!fallbackUpdated || fallbackUpdated.length === 0) {
+        await supabaseAdmin.from('workflow_executions').insert({
+          execution_id: execution_id,
+          user_id: user_id,
+          correlation_id: payload.correlation_id || correlationId,
+          status: status === 'partial' ? 'completed' : status,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          duration_ms: duration_ms,
+          emails_processed: emails_processed,
+          error_category: error_category || null,
+          error_message: error_message || null,
+        });
+      }
+    }
 
     // 3. Update reports metadata table
     if (report_date) {
