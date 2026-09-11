@@ -49,6 +49,10 @@ export default function OnboardingPage() {
     country: 'India',
   });
 
+  const subscription = accountData?.subscription;
+  const isSubscribed = subscription?.status === 'active' ||
+    (subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) > new Date());
+
   const setStep = (newStep) => {
     setStepState(newStep);
     if (typeof window !== 'undefined') {
@@ -64,7 +68,6 @@ export default function OnboardingPage() {
     const settings = accountData.settings;
     const gmailConnections = accountData.gmail_connections || [];
     const driveConnection = accountData.drive_connection;
-    const subscription = accountData.subscription;
 
     setUserData(user);
 
@@ -85,8 +88,6 @@ export default function OnboardingPage() {
     const hasGmail = gmailConnections.some((c) => c.connection_slot === 1 && c.status === 'connected');
     const hasDrive = driveConnection?.status === 'connected';
     const isProfileDone = Boolean(settings?.profile_completed || (user?.name && user?.profession));
-    const isSubscribed = subscription?.status === 'active' ||
-      (subscription?.status === 'trialing' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date());
 
     setGmailAccounts(gmailConnections);
     setGmail1Connected(hasGmail);
