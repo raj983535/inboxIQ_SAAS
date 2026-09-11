@@ -45,7 +45,7 @@ export async function POST(req) {
     // 2. Subscription Verification
     const { data: subData, error: subErr } = await supabaseAdmin
       .from('subscriptions')
-      .select('status, current_period_end')
+      .select('status, current_period_end, trial_ends_at')
       .eq('user_id', user_id)
       .maybeSingle();
 
@@ -53,9 +53,14 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'User subscription not found.', 403);
     }
 
+    const hasValidTrial =
+      (subData.status === 'trialing' || subData.status === 'created') &&
+      subData.trial_ends_at &&
+      new Date(subData.trial_ends_at) > new Date();
+
     const isSubActive =
       subData.status === 'active' ||
-      (subData.status === 'trialing' && subData.current_period_end && new Date(subData.current_period_end) > new Date()) ||
+      hasValidTrial ||
       (subData.status === 'cancelled' && subData.current_period_end && new Date(subData.current_period_end) > new Date());
 
     if (!isSubActive) {

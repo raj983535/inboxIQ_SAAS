@@ -66,6 +66,7 @@ export async function POST(req) {
       razorpay_customer_id: entity.customer_id || null,
       razorpay_payment_id: entity.payment_id || entity.id,
       razorpay_subscription_id: subscriptionId,
+      trial_claimed: true,
       current_period_start: entity.current_start ? new Date(entity.current_start * 1000).toISOString() : new Date().toISOString(),
       current_period_end: nextEnd,
       updated_at: new Date().toISOString(),

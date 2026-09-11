@@ -26,8 +26,13 @@ export async function POST(req) {
 
     const subscription = subscriptions?.[0] || null;
 
+    const hasValidTrial =
+      (subscription?.status === 'trialing' || subscription?.status === 'created') &&
+      subscription?.trial_ends_at &&
+      new Date(subscription.trial_ends_at) > new Date();
+
     const isAllowed = subscription?.status === 'active' ||
-      (subscription?.status === 'trialing' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date()) ||
+      hasValidTrial ||
       (subscription?.status === 'cancelled' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date()) ||
       user.role === 'admin' || user.role === 'super_admin' ||
       process.env.NODE_ENV !== 'production';

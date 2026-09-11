@@ -53,9 +53,13 @@ export async function POST(req) {
     // Record order intent in subscriptions table
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id')
+      .select('id, status, current_period_end')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    const hasActiveAccess =
+      existingSub?.status === 'active' ||
+      (existingSub?.status === 'trialing' && existingSub?.current_period_end && new Date(existingSub.current_period_end) > new Date());
 
     if (existingSub?.id) {
       await supabaseAdmin
@@ -67,7 +71,7 @@ export async function POST(req) {
           currency: requestedCurrency,
           razorpay_order_id: order.id,
           razorpay_subscription_id: order.id,
-          status: 'created',
+          status: hasActiveAccess ? existingSub.status : 'created',
           cancel_at_cycle_end: false,
           updated_at: new Date().toISOString(),
         })

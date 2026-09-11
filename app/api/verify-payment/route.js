@@ -68,6 +68,7 @@ export async function POST(req) {
       razorpay_payment_id: razorpay_payment_id,
       razorpay_subscription_id: razorpay_subscription_id || razorpay_order_id || null,
       status: 'active',
+      trial_claimed: true,
       current_period_start: nowIso,
       current_period_end: periodEnd,
       updated_at: nowIso,

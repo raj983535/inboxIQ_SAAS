@@ -98,9 +98,15 @@ export async function POST(req) {
     // Save subscription intent in database
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id')
+      .select('id, status, current_period_end')
       .eq('user_id', user.id)
       .maybeSingle();
+
+    // CRITICAL: If user is actively trialing or paid active, do NOT demote their status to 'created'
+    // when they merely open/dismiss the Razorpay modal. Only unverified/inactive accounts get 'created'.
+    const hasActiveAccess =
+      existingSub?.status === 'active' ||
+      (existingSub?.status === 'trialing' && existingSub?.current_period_end && new Date(existingSub.current_period_end) > new Date());
 
     const subPayload = {
       user_id: user.id,
@@ -109,7 +115,7 @@ export async function POST(req) {
       amount: amount,
       currency: requestedCurrency,
       razorpay_subscription_id: subscriptionId,
-      status: 'created',
+      status: hasActiveAccess ? existingSub.status : 'created',
       updated_at: new Date().toISOString(),
     };
 

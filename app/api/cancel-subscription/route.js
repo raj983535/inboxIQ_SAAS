@@ -11,6 +11,14 @@ export async function POST() {
     const user = await getAuthenticatedUser();
     const { data: subscription, error } = await supabaseAdmin.from('subscriptions')
       .select('razorpay_subscription_id, status').eq('user_id', user.id).single();
+
+    if (subscription?.status === 'trialing' && !subscription?.razorpay_subscription_id) {
+      return NextResponse.json({
+        success: true,
+        message: 'You are currently on a free trial with no payment method attached. No recurring charges will occur unless you activate a paid plan.',
+      });
+    }
+
     if (error || !subscription?.razorpay_subscription_id) {
       throw new AppError(ErrorCategories.PAYMENT_ERROR, 'No active recurring subscription was found.', 404);
     }

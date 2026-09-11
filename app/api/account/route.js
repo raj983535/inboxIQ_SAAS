@@ -44,6 +44,24 @@ export async function GET() {
 
     let activeSub = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
 
+    // RESILIENCE CHECK: If user has an unexpired trial (trial_ends_at > now), but the status
+    // got changed to 'created' because they clicked 'Upgrade to Paid Plan' and then cancelled/closed
+    // the Razorpay modal, restore their effective access as 'trialing' both in response and DB!
+    if (activeSub && activeSub.status === 'created' && activeSub.trial_ends_at && new Date(activeSub.trial_ends_at) > new Date()) {
+      activeSub.status = 'trialing';
+      activeSub.current_period_end = activeSub.trial_ends_at;
+      // Self-heal the database row in the background
+      supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status: 'trialing',
+          current_period_end: activeSub.trial_ends_at,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeSub.id)
+        .then();
+    }
+
     // If subscription is not active, but user is authorized Admin / Owner (or has paid):
     const isOwnerOrAdmin = checkIsAdmin(user);
     if ((!activeSub || activeSub.status !== 'active') && isOwnerOrAdmin) {
