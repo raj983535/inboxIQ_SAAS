@@ -92,10 +92,8 @@ export default function OnboardingPage() {
     setGmail1Connected(hasGmail);
     setDriveConnected(hasDrive);
 
-    if (isSubscribed) {
-      router.push('/dashboard');
-      return;
-    }
+    // Note: Do not forcefully redirect out of onboarding if user intentionally navigated here
+    // Instead, allow them to view or review their setup steps, or click Go to Dashboard
 
     // Determine Step Placement with localStorage memory
     const savedStepStr = typeof window !== 'undefined' ? localStorage.getItem('inboxiq_onboarding_active_step') : null;
@@ -567,18 +565,18 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-6 max-w-lg mx-auto text-center">
-              {paymentSuccess ? (
-                /* IN-APP CONFIRMATION ON TRIAL ACTIVATION */
+              {paymentSuccess || isSubscribed ? (
+                /* IN-APP CONFIRMATION ON TRIAL ACTIVATION OR ALREADY ACTIVE */
                 <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 space-y-4 animate-in fade-in zoom-in-95">
                   <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg">
-                    <BellRing className="w-6 h-6 animate-bounce" />
+                    <CheckCircle2 className="w-6 h-6 text-white" />
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
-                      Trial Activated!
+                      {subscription?.status === 'trialing' ? '3-Day Free Trial Active' : 'Subscription Active'}
                     </h3>
                     <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                      Your AI email intelligence pipeline is <strong>ACTIVE</strong> for 3 days. Briefings are scheduled every morning at <strong>{reportTime} ({timezone})</strong> and will be delivered to <strong>{userData?.email}</strong>.
+                      Your AI email intelligence pipeline is <strong>ACTIVE</strong>. Briefings are scheduled every morning at <strong>{reportTime} ({timezone})</strong> and will be delivered directly to <strong>{userData?.email}</strong>.
                     </p>
                   </div>
                   <Button

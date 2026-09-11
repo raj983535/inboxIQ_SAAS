@@ -95,7 +95,7 @@ export function PricingViewClient() {
           <div className="p-5 sm:p-8 pt-0 space-y-3">
             <Link href="/sign-up" className="block">
               <Button size="lg" className="w-full text-sm sm:text-base py-3 sm:py-3.5 shadow-lg shadow-emerald-600/25">
-                Subscribe for {facultyPlan.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
+                Start 3-Day Free Trial ({facultyPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
             <div className="flex items-center justify-center gap-2 text-[11px] text-neutral-400">
@@ -146,7 +146,7 @@ export function PricingViewClient() {
           <div className="p-5 sm:p-8 pt-0 space-y-3">
             <Link href="/sign-up" className="block">
               <Button size="lg" variant="secondary" className="w-full text-sm sm:text-base py-3 sm:py-3.5 border border-neutral-300 dark:border-neutral-700">
-                Subscribe for {studentPlan.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
+                Start 3-Day Free Trial ({studentPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
             <div className="flex items-center justify-center gap-2 text-[11px] text-neutral-400">

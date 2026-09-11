@@ -90,7 +90,7 @@ export default function LandingPage() {
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link href="/sign-up">
             <Button size="lg" className="w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-emerald-600/25">
-              Get Started Now <ArrowRight className="w-4 h-4 ml-2" />
+              Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
           <a href="#how-it-works">
@@ -673,8 +673,8 @@ export default function LandingPage() {
           </p>
           <div className="pt-2">
             <Link href="/sign-up">
-              <Button size="lg" className="bg-white text-neutral-900 hover:bg-neutral-100 text-base px-8 py-3.5 shadow-xl">
-                Get Started with InboxIQ <ArrowRight className="w-4 h-4 ml-2" />
+              <Button size="lg" className="bg-white text-neutral-900 hover:bg-neutral-100 text-base px-8 py-3.5 shadow-xl font-bold">
+                Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
           </div>
