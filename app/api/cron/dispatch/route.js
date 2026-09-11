@@ -45,7 +45,7 @@ export async function GET(req) {
           country
         )
       `)
-      .or('status.eq.active,and(status.eq.cancelled,current_period_end.gt.now())');
+      .or('status.eq.active,status.eq.trialing,and(status.eq.cancelled,current_period_end.gt.now())');
 
     if (subErr) {
       throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to query active subscriptions: ${subErr.message}`, 500);

@@ -31,7 +31,7 @@ export async function GET() {
         .eq('user_id', user.id)
         .maybeSingle(),
       supabaseAdmin.from('subscriptions')
-        .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end, updated_at')
+        .select('id, plan_id, plan_name, amount, currency, status, current_period_start, current_period_end, trial_started_at, trial_ends_at, trial_claimed, updated_at')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(1),
@@ -137,6 +137,9 @@ export async function GET() {
           plan_id: user.profession === 'student' ? 'plan_student_pro' : 'plan_faculty_pro',
           amount: user.profession === 'student' ? (user.country === 'India' ? 99 : 4) : (user.country === 'India' ? 499 : 8),
           currency: user.country === 'India' ? 'INR' : 'USD',
+          trial_claimed: false,
+          trial_started_at: null,
+          trial_ends_at: null,
         },
         recent_reports: recentReports || [],
         db_debug: {

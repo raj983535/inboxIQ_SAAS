@@ -54,6 +54,7 @@ export async function POST(req) {
 
     const isSubActive =
       subData?.status === 'active' ||
+      (subData?.status === 'trialing' && subData.current_period_end && new Date(subData.current_period_end) > new Date()) ||
       (subData?.status === 'cancelled' && subData.current_period_end && new Date(subData.current_period_end) > new Date());
 
     if (!isSubActive) {

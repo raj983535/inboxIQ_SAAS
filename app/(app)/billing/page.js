@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Script from 'next/script';
-import { CreditCard, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
+import { CreditCard, CheckCircle2, ShieldCheck, AlertCircle, Sparkles, ArrowRight, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,15 @@ export default function BillingPage() {
   const profession = user?.profession || 'professor_teacher';
   const planInfo = getPlanForProfession(profession, currency);
   const subscription = data?.subscription;
-  const isSubscribed = subscription?.status === 'active';
+  const isActive = subscription?.status === 'active';
+  const isTrialing = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) > new Date();
+  const isTrialExpired = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date();
+  const isSubscribed = isActive || isTrialing;
+
+  // Calculate trial hours remaining
+  const trialHoursRemaining = isTrialing
+    ? Math.max(0, Math.round((new Date(subscription.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60) * 10) / 10)
+    : 0;
 
   const handleSubscribe = async () => {
     setCheckoutLoading(true);
@@ -167,6 +175,56 @@ export default function BillingPage() {
         {successMsg && <Alert variant="success">{successMsg}</Alert>}
         {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
 
+        {/* Trial Status Banners */}
+        {isTrialing && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  Free Trial Active ({trialHoursRemaining}h remaining)
+                </h4>
+                <p className="text-xs text-amber-700/90 dark:text-amber-300/80">
+                  Your briefings are fully operational until {new Date(subscription.current_period_end).toLocaleString()}. Upgrade now to prevent service interruption.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="primary"
+              loading={checkoutLoading}
+              onClick={handleSubscribe}
+              className="shrink-0 w-full sm:w-auto shadow-sm"
+            >
+              Activate Paid Plan <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
+          </div>
+        )}
+
+        {isTrialExpired && (
+          <Alert variant="danger" className="border-rose-200 dark:border-rose-800/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+              <div>
+                <strong className="block text-sm font-bold">Your 3-Day Free Trial Has Ended</strong>
+                <span className="text-xs">
+                  Automated briefings are paused. Subscribe below to re-activate your daily inbox intelligence.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={checkoutLoading}
+                onClick={handleSubscribe}
+                className="shrink-0"
+              >
+                Subscribe Now
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         {/* Currency Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <div>
@@ -207,8 +265,11 @@ export default function BillingPage() {
             {loading && !data ? (
               <span className="inline-block w-16 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
             ) : (
-              <Badge variant={isSubscribed ? 'success' : 'warning'} className="self-start sm:self-auto">
-                {subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
+              <Badge
+                variant={isActive ? 'success' : isTrialing ? 'warning' : 'danger'}
+                className="self-start sm:self-auto"
+              >
+                {isTrialing ? 'TRIALING' : isTrialExpired ? 'TRIAL EXPIRED' : subscription?.status ? subscription.status.toUpperCase() : 'INACTIVE'}
               </Badge>
             )}
           </CardHeader>
@@ -219,7 +280,8 @@ export default function BillingPage() {
                 <p className="text-xs text-neutral-500">{planInfo.target}</p>
                 {subscription?.current_period_end && (
                   <p className="text-[11px] text-neutral-400">
-                    Next renewal: {new Date(subscription.current_period_end).toLocaleDateString()}
+                    {isTrialing ? 'Trial ends: ' : 'Next renewal: '}
+                    {new Date(subscription.current_period_end).toLocaleDateString()}
                   </p>
                 )}
               </div>
@@ -247,9 +309,9 @@ export default function BillingPage() {
             </div>
             {loading && !data ? (
               <span className="inline-block w-32 h-9 bg-neutral-200 dark:bg-neutral-800 rounded-lg animate-pulse" />
-            ) : !isSubscribed ? (
+            ) : !isActive ? (
               <Button size="md" variant="primary" loading={checkoutLoading} onClick={handleSubscribe} className="w-full sm:w-auto">
-                Subscribe for {planInfo.activePricing.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
+                {isTrialing ? 'Upgrade to Paid Plan' : `Subscribe for ${planInfo.activePricing.formatted}/mo`} <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
               <Button size="sm" variant="outline" loading={checkoutLoading} onClick={handleCancel} className="w-full sm:w-auto text-rose-600 hover:text-rose-700">

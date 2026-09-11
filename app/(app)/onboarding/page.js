@@ -85,7 +85,8 @@ export default function OnboardingPage() {
     const hasGmail = gmailConnections.some((c) => c.connection_slot === 1 && c.status === 'connected');
     const hasDrive = driveConnection?.status === 'connected';
     const isProfileDone = Boolean(settings?.profile_completed || (user?.name && user?.profession));
-    const isSubscribed = subscription?.status === 'active';
+    const isSubscribed = subscription?.status === 'active' ||
+      (subscription?.status === 'trialing' && subscription.current_period_end && new Date(subscription.current_period_end) > new Date());
 
     setGmailAccounts(gmailConnections);
     setGmail1Connected(hasGmail);
@@ -137,7 +138,38 @@ export default function OnboardingPage() {
     }
   };
 
-  // STEP 3: Razorpay Standard Checkout & Verification
+  // STEP 3 (PRIMARY): Claim free trial — no payment required
+  const handleClaimTrial = async () => {
+    setCheckoutLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/billing/trial/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Unable to start your free trial.');
+      }
+
+      // Mark schedule and onboarding settings
+      await fetch('/api/update-report-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportTime, timezone, onboardingCompleted: true }),
+      });
+
+      await refreshAccount();
+      setPaymentSuccess(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  // STEP 3 (FALLBACK): Razorpay Standard Checkout & Verification
   const handleSubscribe = async () => {
     setCheckoutLoading(true);
     setError(null);
@@ -259,7 +291,7 @@ export default function OnboardingPage() {
   const steps = [
     { num: 1, title: 'Profile Setup', desc: 'Personalize your AI briefing' },
     { num: 2, title: 'Connect Mailbox', desc: 'Link 1 Gmail & Google Drive' },
-    { num: 3, title: 'Activate Subscription', desc: 'Start your daily intelligence' },
+    { num: 3, title: 'Start Free Trial', desc: 'Try 3 days free — no card needed' },
   ];
 
   const planInfo = getPlanForProfession(profile.profession, 'INR');
@@ -523,30 +555,30 @@ export default function OnboardingPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* STEP 3: MONTHLY SUBSCRIPTION & ACTIVATION */}
+        {/* STEP 3: START FREE TRIAL */}
         {/* ========================================================================= */}
         {step === 3 && (
           <Card className="shadow-2xl border-2 border-emerald-500/80">
             <CardHeader className="text-center pb-2">
               <Badge variant="success" className="mx-auto mb-2">Final Step</Badge>
-              <CardTitle className="text-2xl font-bold">Activate Your Monthly Intelligence Plan</CardTitle>
+              <CardTitle className="text-2xl font-bold">Start Your 3-Day Free Trial</CardTitle>
               <CardDescription>
-                Payment activates the scheduled daily intelligence pipeline. Briefings will be sent to <strong>{userData?.email}</strong>.
+                Experience the full AI email intelligence pipeline — no payment required. Briefings will be sent to <strong>{userData?.email}</strong>.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-6 max-w-lg mx-auto text-center">
               {paymentSuccess ? (
-                /* IN-APP CONFIRMATION NOTIFICATION ON PAYMENT SUCCESS */
+                /* IN-APP CONFIRMATION ON TRIAL ACTIVATION */
                 <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 space-y-4 animate-in fade-in zoom-in-95">
                   <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg">
                     <BellRing className="w-6 h-6 animate-bounce" />
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
-                      Payment Successful!
+                      Trial Activated!
                     </h3>
                     <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                      Your AI email intelligence pipeline is <strong>ACTIVATED</strong> and scheduled to execute every morning at <strong>{reportTime} ({timezone})</strong>. Briefings will be delivered directly to <strong>{userData?.email}</strong>.
+                      Your AI email intelligence pipeline is <strong>ACTIVE</strong> for 3 days. Briefings are scheduled every morning at <strong>{reportTime} ({timezone})</strong> and will be delivered to <strong>{userData?.email}</strong>.
                     </p>
                   </div>
                   <Button
@@ -562,16 +594,13 @@ export default function OnboardingPage() {
                   </Button>
                 </div>
               ) : (
-                /* CHECKOUT CARD */
+                /* FREE TRIAL CARD */
                 <div className="space-y-6">
                   <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
-                        {planInfo.activePricing.formatted}
-                      </span>
-                      <span className="text-xs text-neutral-500 font-semibold">{planInfo.activePricing.period}</span>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[11px] font-bold">
+                      <Sparkles className="w-3 h-3" /> 3-Day Free Trial
                     </div>
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
                     <p className="text-xs text-neutral-400">
                       Tailored for: {planInfo.target}
                     </p>
@@ -586,17 +615,17 @@ export default function OnboardingPage() {
                   </div>
 
                   <Button
-                    onClick={handleSubscribe}
+                    onClick={handleClaimTrial}
                     loading={checkoutLoading}
                     variant="primary"
                     size="lg"
                     className="w-full text-base py-3.5 shadow-lg"
                   >
-                    Subscribe &amp; Activate Briefing ({planInfo.activePricing.formatted}/mo) <ArrowRight className="w-4 h-4 ml-2" />
+                    Start Free Trial — 3 Days of AI Intelligence <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
 
                   <p className="text-[11px] text-neutral-400">
-                    Cancel anytime in 1-click from Settings. Secured by Razorpay.
+                    No credit card required. After trial: {planInfo.activePricing.formatted}/month • Cancel anytime.
                   </p>
                 </div>
               )}
