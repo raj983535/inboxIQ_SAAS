@@ -46,7 +46,13 @@ export default function DashboardPage() {
   const recentReports = data?.recent_reports || [];
 
   const activeGmailCount = gmailConnections.filter((c) => c.status === 'connected').length;
-  const isSubscribed = subscription?.status === 'active';
+  const isActive = subscription?.status === 'active';
+  const isTrialing = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) > new Date();
+  const isTrialExpired = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date();
+  const isSubscribed = isActive || isTrialing;
+  const trialHoursRemaining = isTrialing
+    ? Math.max(0, Math.round((new Date(subscription.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60) * 10) / 10)
+    : 0;
   const isDriveConnected = driveConnection?.status === 'connected';
   const profession = user?.profession || 'professor_teacher';
   const isAdmin = checkIsAdmin(user);
@@ -119,7 +125,33 @@ export default function DashboardPage() {
             </div>
             <div className="h-8 w-24 bg-neutral-300 dark:bg-neutral-800 rounded-lg shrink-0 hidden sm:block" />
           </div>
-        ) : isSubscribed ? (
+        ) : isTrialing ? (
+          <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Free Trial Active ({trialHoursRemaining}h remaining)
+                  </span>
+                  <Badge variant="warning">Trial Active</Badge>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                  Your daily AI briefing is scheduled to execute at <strong className="text-amber-700 dark:text-amber-300 font-bold">{settings?.report_time || '08:00 AM'}</strong> ({settings?.timezone || 'Asia/Kolkata'}) and deliver to <strong className="text-neutral-900 dark:text-white font-bold">{user?.email}</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 w-full sm:w-auto">
+              <Link href="/billing" className="block">
+                <Button size="sm" variant="primary" className="w-full sm:w-auto text-xs">
+                  Upgrade to Paid Plan <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : isActive ? (
           <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
@@ -146,27 +178,29 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                    Subscription Inactive
+                  <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                    {isTrialExpired ? 'Trial Expired' : 'Subscription Inactive'}
                   </span>
-                  <Badge variant="warning">Action Required</Badge>
+                  <Badge variant="danger">Action Required</Badge>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                  Automated email intelligence is locked. Please activate your monthly subscription to enable scheduled briefings.
+                  {isTrialExpired
+                    ? 'Your 3-day free trial has expired. Upgrade your subscription to resume automated daily email briefings.'
+                    : 'Automated email intelligence is locked. Please activate your monthly subscription to enable scheduled briefings.'}
                 </p>
               </div>
             </div>
             <div className="shrink-0 w-full sm:w-auto">
-              <Link href="/onboarding" className="block">
+              <Link href="/billing" className="block">
                 <Button size="sm" variant="primary" className="w-full sm:w-auto text-xs">
-                  Activate Subscription <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  {isTrialExpired ? 'Upgrade Subscription' : 'Activate Subscription'} <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -239,14 +273,22 @@ export default function DashboardPage() {
                     )}
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    {loading && !data ? 'Loading...' : isSubscribed ? `${subscription?.plan_name || 'Pro Active'}` : 'Setup Required'}
+                    {loading && !data
+                      ? 'Loading...'
+                      : isTrialing
+                      ? `${trialHoursRemaining}h remaining in trial`
+                      : isTrialExpired
+                      ? 'Trial expired — renew'
+                      : isActive
+                      ? `${subscription?.plan_name || 'Pro Active'}`
+                      : 'Setup Required'}
                   </p>
                 </div>
                 {loading && !data ? (
                   <span className="inline-block w-14 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
                 ) : (
-                  <Badge variant={isSubscribed ? 'success' : 'warning'}>
-                    {isSubscribed ? 'Active' : 'Not Active'}
+                  <Badge variant={isActive ? 'success' : isTrialing ? 'warning' : 'danger'}>
+                    {isActive ? 'Active' : isTrialing ? 'Trial Active' : 'Not Active'}
                   </Badge>
                 )}
               </div>
