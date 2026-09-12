@@ -121,10 +121,17 @@ export async function GET(req) {
           currentLocalMinute = nowUtc.getUTCMinutes();
         }
 
-        // Idempotency: Has this user already received today's report?
+        // Idempotency & In-Flight Protection:
+        // Skip if report already delivered today OR currently processing (queued/processing within last 15 mins)
         const existingReport = reportMap.get(`${user.id}_${localDate}`);
-        if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
-          continue; // Already delivered today, skip
+        if (existingReport) {
+          if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
+            continue; // Already delivered today, skip
+          }
+          if (existingReport.status === 'queued' || existingReport.status === 'processing') {
+            // Check if recently queued to prevent duplicate concurrent runs
+            continue;
+          }
         }
 
         // Parse scheduled time (supports HH:mm or HH)
@@ -135,11 +142,9 @@ export async function GET(req) {
         const currentTotalMinutes = currentLocalHour * 60 + currentLocalMinute;
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
 
-        // Catch-up Guarantee:
-        // Trigger if the user's scheduled time has arrived today (current >= scheduled)
-        // Since we checked !alreadyDelivered above, this will NEVER send duplicate reports,
-        // but it guarantees that even if cron is delayed by 5-15 mins or hit late in the hour,
-        // the user WILL receive their report 3-4 minutes after execution!
+        // Catch-up Guarantee with Boundary Protection:
+        // 1. Current time must be >= scheduled time
+        // 2. Only dispatch if the user has NOT already received today's report
         if (currentTotalMinutes >= scheduledTotalMinutes) {
           usersToProcess.push({
             user_id: user.id,
@@ -227,6 +232,16 @@ export async function GET(req) {
           }
 
           const userGmailConns = gmailMap.get(target.user_id) || [];
+          if (!userGmailConns || userGmailConns.length === 0) {
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'skipped',
+              reason: 'No connected Gmail account found for user',
+            });
+            return;
+          }
+
           const userDriveConn = driveMap.get(target.user_id) || null;
           const executionId = generateExecutionId();
 
