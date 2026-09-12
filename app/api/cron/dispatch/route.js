@@ -46,7 +46,7 @@ export async function GET(req) {
           country
         )
       `)
-      .or('status.eq.active,status.eq.trialing,and(status.eq.cancelled,current_period_end.gt.now())');
+      .in('status', ['active', 'trialing', 'cancelled']);
 
     if (subErr) {
       throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to query active subscriptions: ${subErr.message}`, 500);
@@ -55,7 +55,7 @@ export async function GET(req) {
     const usersToProcess = [];
 
     if (subs && subs.length > 0) {
-      const userIds = subs.map(s => s.user_id);
+      const userIds = subs.map(s => s.user_id).filter(Boolean);
       const { data: settingsList } = await supabaseAdmin
         .from('user_settings')
         .select('user_id, report_time, timezone')
@@ -72,8 +72,17 @@ export async function GET(req) {
           }
         }
 
+        // Skip cancelled subscriptions whose paid period has ended
+        if (sub.status === 'cancelled') {
+          if (!sub.current_period_end || new Date(sub.current_period_end) <= new Date()) {
+            continue;
+          }
+        }
+
         const user = sub.users;
-        const userSetting = settingsMap.get(user.id);
+        if (!user || !user.id) continue;
+
+        const userSetting = settingsMap.get(sub.user_id);
         const reportTime = userSetting?.report_time || '08:00';
         const timezone = userSetting?.timezone || 'Asia/Kolkata';
         const scheduledHour = reportTime.split(':')[0].trim().padStart(2, '0');

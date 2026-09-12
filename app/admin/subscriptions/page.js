@@ -130,10 +130,20 @@ export default function AdminSubscriptionsPage() {
                       <span className="font-mono text-xs text-amber-600 dark:text-amber-400">{sub.razorpay_payment_id}</span>
                       <div className="text-[10px] text-slate-500 dark:text-neutral-500">Payment ID</div>
                     </div>
+                  ) : sub.status === 'trialing' ? (
+                    <div>
+                      <span className="font-mono text-xs text-amber-600 dark:text-amber-400">sub_{sub.id?.substring(0, 8)}</span>
+                      <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">Free Trial (No Card)</div>
+                    </div>
+                  ) : sub.users?.email === 'sahilrajppm2022@gmail.com' ? (
+                    <div>
+                      <span className="font-mono text-xs text-purple-600 dark:text-purple-400">sub_{sub.id?.substring(0, 8)}</span>
+                      <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">System / Admin Tier</div>
+                    </div>
                   ) : (
                     <div>
                       <span className="font-mono text-xs text-slate-600 dark:text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
-                      <div className="text-[10px] text-purple-600 dark:text-purple-400">System / Admin Tier</div>
+                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Complimentary / Manual</div>
                     </div>
                   )}
                 </TableCell>
