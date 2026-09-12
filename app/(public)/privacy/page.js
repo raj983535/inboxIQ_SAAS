@@ -55,6 +55,31 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          {/* Google API Limited Use Disclosure */}
+          <section className="space-y-3 p-4 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60">
+            <h2 className="text-base sm:text-lg font-bold text-blue-900 dark:text-blue-200">
+              Google API Limited Use Disclosure
+            </h2>
+            <p className="text-blue-800 dark:text-blue-300">
+              InboxIQ&apos;s use and transfer to any other app of information received from Google APIs will adhere to the{' '}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline text-blue-900 dark:text-blue-200 hover:text-blue-700"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-blue-800/90 dark:text-blue-300/90">
+              <li>We only use Google user data to provide and improve the user-facing email intelligence briefings prominently visible in the InboxIQ interface.</li>
+              <li>We do not transfer or disclose Google user data to third parties unless strictly necessary to provide or improve the service, comply with applicable law, or as part of an asset acquisition.</li>
+              <li>We never use or transfer Google user data to serve personalized, re-targeted, or interest-based advertising.</li>
+              <li>We never allow humans to read user email data unless we have obtained your affirmative consent for specific messages, it is strictly necessary for security purposes (such as investigating abuse), or to comply with applicable law.</li>
+            </ul>
+          </section>
+
           {/* 3. Email Processing */}
           <section className="space-y-2">
             <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
@@ -190,7 +215,7 @@ export default function PrivacyPage() {
               14. Changes to this Policy
             </h2>
             <p>
-              We may update this Privacy Policy from time to time. Any changes will be published on <a href="https://inboxiq.online/privacy" className="text-emerald-600 underline">https://inboxiq.online/privacy</a> with an updated effective date.
+              We may update this Privacy Policy from time to time. Any changes will be published on <a href="https://www.inboxiq.online/privacy" className="text-emerald-600 underline">https://www.inboxiq.online/privacy</a> with an updated effective date.
             </p>
           </section>
 
