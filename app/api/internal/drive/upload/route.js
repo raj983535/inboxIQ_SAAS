@@ -95,7 +95,14 @@ export async function POST(req) {
       folder_id: targetFolderId,
     });
   } catch (error) {
-    const safeError = formatSafeErrorResponse(error, correlationId);
-    return NextResponse.json(safeError, { status: safeError.status });
+    // Graceful fallback: Do not throw 500 error if drive upload fails.
+    // Core report is delivered via email; drive is non-blocking.
+    console.warn(`[DriveUpload] Google Drive upload failed for correlation ${correlationId}:`, error.message);
+    return NextResponse.json({
+      success: true,
+      uploaded: false,
+      status: 'failed',
+      message: error.message || 'Google Drive upload encountered an error.',
+    });
   }
 }

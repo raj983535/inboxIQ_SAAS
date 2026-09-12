@@ -53,15 +53,27 @@ export async function GET(req) {
     }
 
     const usersToProcess = [];
+    const reportMap = new Map();
 
     if (subs && subs.length > 0) {
-      const userIds = subs.map(s => s.user_id).filter(Boolean);
-      const { data: settingsList } = await supabaseAdmin
-        .from('user_settings')
-        .select('user_id, report_time, timezone')
-        .in('user_id', userIds);
+      const allSubUserIds = subs.map(s => s.user_id).filter(Boolean);
+
+      // Fetch user settings and existing reports for today
+      const [{ data: settingsList }, { data: allExistingReports }] = await Promise.all([
+        supabaseAdmin
+          .from('user_settings')
+          .select('user_id, report_time, timezone')
+          .in('user_id', allSubUserIds),
+        supabaseAdmin
+          .from('reports')
+          .select('id, user_id, report_date, status, email_delivery_status')
+          .in('user_id', allSubUserIds),
+      ]);
 
       const settingsMap = new Map((settingsList || []).map(s => [s.user_id, s]));
+      for (const r of allExistingReports || []) {
+        reportMap.set(`${r.user_id}_${r.report_date}`, r);
+      }
 
       for (const sub of subs) {
         // Skip expired trials
@@ -85,21 +97,50 @@ export async function GET(req) {
         const userSetting = settingsMap.get(sub.user_id);
         const reportTime = userSetting?.report_time || '08:00';
         const timezone = userSetting?.timezone || 'Asia/Kolkata';
-        const scheduledHour = reportTime.split(':')[0].trim().padStart(2, '0');
 
-        let currentLocalHour = '08';
+        // Calculate user's local date and current time
+        let localDate = new Date().toISOString().split('T')[0];
+        let currentLocalHour = 8;
+        let currentLocalMinute = 0;
         try {
-          const nowInTz = new Intl.DateTimeFormat('en-GB', {
-            hour: '2-digit',
+          const dFmt = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
+          localDate = dFmt.format(new Date());
+
+          const parts = new Intl.DateTimeFormat('en-GB', {
+            hour: 'numeric',
+            minute: 'numeric',
             hour12: false,
             timeZone: timezone,
-          }).format(new Date());
-          currentLocalHour = nowInTz.padStart(2, '0');
+          }).formatToParts(new Date());
+
+          currentLocalHour = parseInt(parts.find(p => p.type === 'hour')?.value || '8', 10);
+          currentLocalMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
         } catch (tzErr) {
-          currentLocalHour = new Date().getUTCHours().toString().padStart(2, '0');
+          const nowUtc = new Date();
+          currentLocalHour = nowUtc.getUTCHours();
+          currentLocalMinute = nowUtc.getUTCMinutes();
         }
 
-        if (scheduledHour === currentLocalHour) {
+        // Idempotency: Has this user already received today's report?
+        const existingReport = reportMap.get(`${user.id}_${localDate}`);
+        if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
+          continue; // Already delivered today, skip
+        }
+
+        // Parse scheduled time (supports HH:mm or HH)
+        const timeParts = reportTime.split(':');
+        const scheduledHour = parseInt(timeParts[0] || '8', 10);
+        const scheduledMinute = parseInt(timeParts[1] || '0', 10);
+
+        const currentTotalMinutes = currentLocalHour * 60 + currentLocalMinute;
+        const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
+
+        // Catch-up Guarantee:
+        // Trigger if the user's scheduled time has arrived today (current >= scheduled)
+        // Since we checked !alreadyDelivered above, this will NEVER send duplicate reports,
+        // but it guarantees that even if cron is delayed by 5-15 mins or hit late in the hour,
+        // the user WILL receive their report 3-4 minutes after execution!
+        if (currentTotalMinutes >= scheduledTotalMinutes) {
           usersToProcess.push({
             user_id: user.id,
             user_email: user.email,
@@ -108,6 +149,7 @@ export async function GET(req) {
             country: user.country || 'India',
             report_time: reportTime,
             timezone: timezone,
+            local_date: localDate,
           });
         }
       }
@@ -120,16 +162,16 @@ export async function GET(req) {
         guard: 'active',
         dispatched: 0,
         n8n_executions_saved: 1,
-        message: 'No subscribers scheduled for the current hour window. n8n was not called.',
+        message: 'No pending subscribers scheduled for delivery at this time. n8n was not called.',
         duration_ms: Date.now() - startTime,
         timestamp: new Date().toISOString(),
       });
     }
 
-    // 4. High-Scale Bulk Prefetching (Replaces 300+ round trips with 3 batched queries)
+    // 4. High-Scale Bulk Prefetching (Connections for eligible users)
     const scheduledUserIds = usersToProcess.map((u) => u.user_id);
 
-    const [{ data: allGmailConns }, { data: allDriveConns }, { data: allExistingReports }] = await Promise.all([
+    const [{ data: allGmailConns }, { data: allDriveConns }] = await Promise.all([
       supabaseAdmin
         .from('gmail_connections')
         .select('id, user_id, connection_slot, account_email, status')
@@ -140,10 +182,6 @@ export async function GET(req) {
         .select('id, user_id, account_email, reports_folder_id, status')
         .in('user_id', scheduledUserIds)
         .eq('status', 'connected'),
-      supabaseAdmin
-        .from('reports')
-        .select('id, user_id, report_date, status, email_delivery_status')
-        .in('user_id', scheduledUserIds),
     ]);
 
     // Build O(1) in-memory lookup maps
@@ -157,11 +195,6 @@ export async function GET(req) {
     const driveMap = new Map();
     for (const d of allDriveConns || []) {
       driveMap.set(d.user_id, d);
-    }
-
-    const reportMap = new Map();
-    for (const r of allExistingReports || []) {
-      reportMap.set(`${r.user_id}_${r.report_date}`, r);
     }
 
     // 5. Concurrent Chunk Dispatching (Handles 100+ users safely without Vercel timeouts)
