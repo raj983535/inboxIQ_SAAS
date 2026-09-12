@@ -19,13 +19,17 @@ export async function GET(req) {
   const startTime = Date.now();
 
   try {
-    // 1. Security Check: Verify CRON_SECRET if configured on Vercel
+    // 1. Security Check: Verify CRON_SECRET if configured or internal N8N_WEBHOOK_SECRET
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
+    const internalKey = req.headers.get('x-inboxiq-secret') || req.headers.get('x-internal-key');
+    const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      const internalKey = req.headers.get('x-inboxiq-secret');
-      if (internalKey !== (process.env.N8N_WEBHOOK_SECRET || 'inboxiq_production_orchestration_secret_key_2026')) {
+    const isCronAuthorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+    const isInternalAuthorized = Boolean(webhookSecret && internalKey === webhookSecret);
+
+    if (!isCronAuthorized && !isInternalAuthorized) {
+      if (process.env.NODE_ENV === 'production' || cronSecret || webhookSecret) {
         throw new AppError(ErrorCategories.AUTH_ERROR, 'Unauthorized cron invocation.', 401);
       }
     }
@@ -66,7 +70,7 @@ export async function GET(req) {
           .in('user_id', allSubUserIds),
         supabaseAdmin
           .from('reports')
-          .select('id, user_id, report_date, status, email_delivery_status')
+          .select('id, user_id, report_date, status, email_delivery_status, created_at, updated_at')
           .in('user_id', allSubUserIds),
       ]);
 
@@ -122,15 +126,20 @@ export async function GET(req) {
         }
 
         // Idempotency & In-Flight Protection:
-        // Skip if report already delivered today OR currently processing (queued/processing within last 15 mins)
+        // Skip if report already delivered today OR actively processing (queued/processing within last 15 mins)
         const existingReport = reportMap.get(`${user.id}_${localDate}`);
         if (existingReport) {
           if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
             continue; // Already delivered today, skip
           }
           if (existingReport.status === 'queued' || existingReport.status === 'processing') {
-            // Check if recently queued to prevent duplicate concurrent runs
-            continue;
+            // Check if recently queued/processed to prevent duplicate concurrent runs
+            const lastActivity = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
+            const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+            if (lastActivity > fifteenMinutesAgo) {
+              continue; // Actively in-flight within last 15 minutes, skip
+            }
+            // If older than 15 minutes, it is a stale zombie lock from a crashed run. Allow catchup retry!
           }
         }
 
@@ -229,6 +238,19 @@ export async function GET(req) {
               reason: 'Daily report already delivered today',
             });
             return;
+          }
+          if (existingReport && (existingReport.status === 'queued' || existingReport.status === 'processing')) {
+            const lastActivity = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
+            const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+            if (lastActivity > fifteenMinutesAgo) {
+              dispatchResults.push({
+                user_id: target.user_id,
+                user_email: target.user_email,
+                status: 'skipped',
+                reason: 'Execution actively in-flight within last 15 minutes',
+              });
+              return;
+            }
           }
 
           const userGmailConns = gmailMap.get(target.user_id) || [];

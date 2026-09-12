@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyN8nWebhookSignature } from '@/lib/n8n/client';
 import { verifyInternalAuth } from '@/lib/internal-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
-import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
+import { formatSafeErrorResponse, AppError, ErrorCategories, logSystemError } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
 
 export async function POST(req) {
@@ -114,15 +114,14 @@ export async function POST(req) {
         .eq('report_date', report_date);
     }
 
-    // 4. Log failure if any in system_errors table
+    // 4. Log failure if any in system_errors table and fire real-time alert
     if (status === 'failed' || error_message) {
-      await supabaseAdmin.from('system_errors').insert({
-        user_id: user_id,
-        correlation_id: payload.correlation_id || correlationId,
-        failure_category: error_category || ErrorCategories.N8N_ERROR,
-        error_status: 'unresolved',
-        error_message: error_message || 'Workflow execution reported failure',
-        context_data: { execution_id, duration_ms, emails_processed },
+      await logSystemError({
+        userId: user_id,
+        correlationId: payload.correlation_id || correlationId,
+        failureCategory: error_category || ErrorCategories.N8N_ERROR,
+        errorMessage: error_message || 'Workflow execution reported failure',
+        contextData: { execution_id, duration_ms, emails_processed },
       });
     }
 
