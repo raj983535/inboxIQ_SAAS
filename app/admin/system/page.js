@@ -35,6 +35,14 @@ export default function AdminSystemPage() {
     try {
       const res = await fetch('/api/admin/health');
       if (!res.ok) {
+        if (res.status === 401) {
+          try {
+            sessionStorage.removeItem('inboxiq_cached_account');
+            localStorage.removeItem('inboxiq_cached_account');
+          } catch (e) {}
+          window.location.href = '/admin/login';
+          return;
+        }
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error?.message || `Health check failed (HTTP ${res.status})`);
       }

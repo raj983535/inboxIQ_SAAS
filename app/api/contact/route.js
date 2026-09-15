@@ -54,9 +54,33 @@ export async function POST(req) {
 
     // 2. Parse request body
     const body = await req.json().catch(() => ({}));
-    const { name, email, subject, message } = body;
+    const { name, email, subject, message, website, load_time } = body;
 
-    // 3. Server-side validation
+    // 3. Anti-Bot Defense Layer
+    // A. Honeypot check: Bots fill in hidden inputs, humans never do.
+    if (website && typeof website === 'string' && website.trim().length > 0) {
+      console.warn('[Contact Spam Blocked] Honeypot field filled by bot:', { ip, email, website });
+      return NextResponse.json({ success: true, simulated: true });
+    }
+
+    // B. Time-to-submit check: Headless automated scripts submit in < 2.5 seconds.
+    if (load_time && !isNaN(Number(load_time))) {
+      const elapsedMs = Date.now() - Number(load_time);
+      if (elapsedMs < 2000) {
+        console.warn('[Contact Spam Blocked] Form submitted too quickly by bot script:', { ip, email, elapsedMs });
+        return NextResponse.json({ success: true, simulated: true });
+      }
+    }
+
+    // C. Gibberish / Bot Token pattern check:
+    // Notice bot spam patterns like `uVymAqlekRJafVaKnakVmy` (single long token with no spaces).
+    const isSingleLongToken = (str) => typeof str === 'string' && str.trim().length >= 15 && !str.includes(' ');
+    if (isSingleLongToken(message) || (subject && isSingleLongToken(subject))) {
+      console.warn('[Contact Spam Blocked] Message or subject is an unspaced bot token:', { ip, email, message });
+      return NextResponse.json({ success: true, simulated: true });
+    }
+
+    // 4. Server-side validation
     if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
       return NextResponse.json(
         {

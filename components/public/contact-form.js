@@ -11,11 +11,13 @@ export function ContactFormClient() {
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [formLoadTime] = useState(() => Date.now());
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     subject: '',
     message: '',
+    website: '', // Honeypot field (hidden from humans, filled by bots)
   });
 
   const handleSubmit = async (e) => {
@@ -28,7 +30,10 @@ export function ContactFormClient() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          load_time: formLoadTime,
+        }),
       });
 
       const data = await res.json();
@@ -161,6 +166,20 @@ export function ContactFormClient() {
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 />
+                {/* Bot Honeypot Input: Hidden from real humans, catches spam scripts */}
+                <div style={{ display: 'none', opacity: 0, position: 'absolute', left: '-9999px' }} aria-hidden="true">
+                  <label htmlFor="company_website">Do not fill this field</label>
+                  <input
+                    id="company_website"
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 mb-1.5">
                     Message <span className="text-rose-500">*</span>
