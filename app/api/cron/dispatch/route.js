@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(req) {
   const correlationId = generateCorrelationId();
   const startTime = Date.now();
+  const { searchParams } = new URL(req.url);
+  const isForce = searchParams.get('force') === 'true';
 
   try {
     // 1. Security Check: Allow Vercel Cron, CRON_SECRET, or internal key
@@ -163,8 +165,8 @@ export async function GET(req) {
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
 
         // Catch-up Guarantee with Boundary Protection:
-        // Only process if current time has reached or passed scheduled time today
-        if (currentTotalMinutes < scheduledTotalMinutes) {
+        // Only process if current time has reached or passed scheduled time today (unless forced)
+        if (!isForce && currentTotalMinutes < scheduledTotalMinutes) {
           continue;
         }
 
