@@ -70,7 +70,8 @@ export async function GET(req) {
           email,
           name,
           profession,
-          country
+          country,
+          status
         )
       `)
       .in('status', ['active', 'trialing', 'trial_ended', 'subscription_ended', 'cancelled']);
@@ -91,7 +92,7 @@ export async function GET(req) {
       const [{ data: settingsList }, { data: allExistingReports }] = await Promise.all([
         supabaseAdmin
           .from('user_settings')
-          .select('user_id, report_time, timezone')
+          .select('user_id, report_time, timezone, status')
           .in('user_id', allSubUserIds),
         supabaseAdmin
           .from('reports')
@@ -109,7 +110,18 @@ export async function GET(req) {
         const user = sub.users;
         if (!user || !user.id) continue;
 
+        // Account status guard: Skip suspended, banned, or inactive user accounts
+        if (user.status && user.status !== 'active') {
+          continue;
+        }
+
         const userSetting = settingsMap.get(sub.user_id);
+
+        // Preference status guard: Skip if user explicitly paused or disabled their briefings
+        if (userSetting?.status && userSetting.status !== 'active') {
+          continue;
+        }
+
         const reportTime = userSetting?.report_time || '08:00';
         const timezone = userSetting?.timezone || 'Asia/Kolkata';
 
