@@ -39,7 +39,17 @@ export async function GET() {
     const now = new Date();
     const trialEnd = sub.trial_ends_at ? new Date(sub.trial_ends_at) : null;
     const isTrialing = sub.status === 'trialing' && trialEnd && trialEnd > now;
-    const isTrialExpired = sub.status === 'trialing' && trialEnd && trialEnd <= now;
+    const isTrialExpired = sub.status === 'trial_ended' || (sub.status === 'trialing' && trialEnd && trialEnd <= now);
+
+    if (sub.status === 'trialing' && trialEnd && trialEnd <= now) {
+      supabaseAdmin
+        .from('subscriptions')
+        .update({ status: 'trial_ended', updated_at: now.toISOString() })
+        .eq('user_id', user.id)
+        .then();
+      sub.status = 'trial_ended';
+    }
+
     const hoursRemaining = isTrialing
       ? Math.max(0, Math.round((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60) * 10) / 10)
       : 0;

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { triggerN8nWorkflow } from '@/lib/n8n/client';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 import { generateCorrelationId, generateExecutionId } from '@/lib/utils';
+import { sendTrialExpiredRenewalReminderEmail, sendSubscriptionExpiredRenewalReminderEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,12 +35,34 @@ export async function GET(req) {
       }
     }
 
-    // 2. Query active subscriptions
+    // 1.5 Auto-heal: Transition expired trials and subscriptions in database
+    const nowIso = new Date().toISOString();
+    try {
+      await Promise.all([
+        supabaseAdmin
+          .from('subscriptions')
+          .update({ status: 'trial_ended', updated_at: nowIso })
+          .eq('status', 'trialing')
+          .or(`trial_ends_at.lte.${nowIso},current_period_end.lte.${nowIso}`),
+        supabaseAdmin
+          .from('subscriptions')
+          .update({ status: 'subscription_ended', updated_at: nowIso })
+          .in('status', ['active', 'cancelled', 'past_due', 'expired'])
+          .not('current_period_end', 'is', null)
+          .lte('current_period_end', nowIso)
+          .eq('trial_claimed', false),
+      ]);
+    } catch (healErr) {
+      console.warn('[CronDispatch] Auto-heal subscription transition warning:', healErr.message);
+    }
+
+    // 2. Query active, trialing, and ended subscriptions eligible for scheduled evaluation
     const { data: subs, error: subErr } = await supabaseAdmin
       .from('subscriptions')
       .select(`
         user_id,
         status,
+        plan_name,
         current_period_end,
         trial_ends_at,
         users!inner (
@@ -50,13 +73,14 @@ export async function GET(req) {
           country
         )
       `)
-      .in('status', ['active', 'trialing', 'cancelled']);
+      .in('status', ['active', 'trialing', 'trial_ended', 'subscription_ended', 'cancelled']);
 
     if (subErr) {
       throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to query active subscriptions: ${subErr.message}`, 500);
     }
 
     const usersToProcess = [];
+    const expiredUsersToRemind = [];
     const reportMap = new Map();
 
     if (subs && subs.length > 0) {
@@ -82,21 +106,6 @@ export async function GET(req) {
       }
 
       for (const sub of subs) {
-        // Skip expired trials
-        if (sub.status === 'trialing' || sub.status === 'created') {
-          const trialEnd = sub.trial_ends_at || sub.current_period_end;
-          if (!trialEnd || new Date(trialEnd) <= new Date()) {
-            continue;
-          }
-        }
-
-        // Skip cancelled subscriptions whose paid period has ended
-        if (sub.status === 'cancelled') {
-          if (!sub.current_period_end || new Date(sub.current_period_end) <= new Date()) {
-            continue;
-          }
-        }
-
         const user = sub.users;
         if (!user || !user.id) continue;
 
@@ -127,8 +136,22 @@ export async function GET(req) {
           currentLocalMinute = nowUtc.getUTCMinutes();
         }
 
+        // Parse scheduled time (supports HH:mm or HH)
+        const timeParts = reportTime.split(':');
+        const scheduledHour = parseInt(timeParts[0] || '8', 10);
+        const scheduledMinute = parseInt(timeParts[1] || '0', 10);
+
+        const currentTotalMinutes = currentLocalHour * 60 + currentLocalMinute;
+        const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
+
+        // Catch-up Guarantee with Boundary Protection:
+        // Only process if current time has reached or passed scheduled time today
+        if (currentTotalMinutes < scheduledTotalMinutes) {
+          continue;
+        }
+
         // Idempotency & In-Flight Protection:
-        // Skip if report already delivered today OR actively processing (queued/processing within last 15 mins)
+        // Skip if report or reminder already delivered today OR actively processing (queued/processing within last 15 mins)
         const existingReport = reportMap.get(`${user.id}_${localDate}`);
         if (existingReport) {
           if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
@@ -145,40 +168,95 @@ export async function GET(req) {
           }
         }
 
-        // Parse scheduled time (supports HH:mm or HH)
-        const timeParts = reportTime.split(':');
-        const scheduledHour = parseInt(timeParts[0] || '8', 10);
-        const scheduledMinute = parseInt(timeParts[1] || '0', 10);
+        // Determine if user has an expired trial or expired subscription
+        const isExpiredTrial =
+          sub.status === 'trial_ended' ||
+          (sub.status === 'trialing' && sub.trial_ends_at && new Date(sub.trial_ends_at) <= new Date());
+        const isExpiredSub =
+          sub.status === 'subscription_ended' ||
+          (sub.status === 'cancelled' && sub.current_period_end && new Date(sub.current_period_end) <= new Date());
 
-        const currentTotalMinutes = currentLocalHour * 60 + currentLocalMinute;
-        const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
-
-        // Catch-up Guarantee with Boundary Protection:
-        // 1. Current time must be >= scheduled time
-        // 2. Only dispatch if the user has NOT already received today's report
-        if (currentTotalMinutes >= scheduledTotalMinutes) {
-          usersToProcess.push({
+        if (isExpiredTrial || isExpiredSub) {
+          expiredUsersToRemind.push({
             user_id: user.id,
             user_email: user.email,
             user_name: user.name,
-            profession: user.profession || 'professor_teacher',
-            country: user.country || 'India',
+            plan_name: sub.plan_name || 'InboxIQ Pro',
+            isExpiredTrial,
             report_time: reportTime,
             timezone: timezone,
             local_date: localDate,
           });
+          continue;
+        }
+
+        // Active subscriber or active trialing user -> Queue for n8n AI briefing
+        usersToProcess.push({
+          user_id: user.id,
+          user_email: user.email,
+          user_name: user.name,
+          profession: user.profession || 'professor_teacher',
+          country: user.country || 'India',
+          report_time: reportTime,
+          timezone: timezone,
+          local_date: localDate,
+        });
+      }
+    }
+
+    // 2.5 Dispatch daily renewal reminder emails to expired users at their scheduled time
+    let remindersDispatched = 0;
+    if (expiredUsersToRemind.length > 0) {
+      for (const rem of expiredUsersToRemind) {
+        try {
+          if (rem.isExpiredTrial) {
+            await sendTrialExpiredRenewalReminderEmail({
+              email: rem.user_email,
+              name: rem.user_name,
+              planName: rem.plan_name,
+              reportTime: rem.report_time,
+              timezone: rem.timezone,
+            });
+          } else {
+            await sendSubscriptionExpiredRenewalReminderEmail({
+              email: rem.user_email,
+              name: rem.user_name,
+              planName: rem.plan_name,
+              reportTime: rem.report_time,
+            });
+          }
+
+          // Record in reports table for daily idempotency and admin dashboard visibility
+          await supabaseAdmin.from('reports').upsert({
+            user_id: rem.user_id,
+            report_date: rem.local_date,
+            report_type: rem.isExpiredTrial ? 'renewal_reminder_trial' : 'renewal_reminder_subscription',
+            status: 'delivered',
+            email_delivery_status: 'delivered',
+            executive_summary: rem.isExpiredTrial
+              ? `Daily renewal reminder delivered at ${rem.report_time} (Trial Ended).`
+              : `Daily renewal reminder delivered at ${rem.report_time} (Subscription Ended).`,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id, report_date' });
+
+          remindersDispatched++;
+        } catch (remErr) {
+          console.error(`[CronDispatch] Failed to send renewal reminder to ${rem.user_email}:`, remErr.message);
         }
       }
     }
 
-    // 3. Intelligent Guard: If 0 users match, terminate immediately without calling n8n!
+    // 3. Intelligent Guard: If 0 users need n8n AI briefings, return early (saving n8n executions!)
     if (!usersToProcess || usersToProcess.length === 0) {
       return NextResponse.json({
         success: true,
         guard: 'active',
         dispatched: 0,
+        reminders_dispatched: remindersDispatched,
         n8n_executions_saved: 1,
-        message: 'No pending subscribers scheduled for delivery at this time. n8n was not called.',
+        message: remindersDispatched > 0
+          ? `Dispatched ${remindersDispatched} renewal reminder email(s). 0 AI briefings scheduled at this time.`
+          : 'No pending subscribers scheduled for delivery at this time. n8n was not called.',
         duration_ms: Date.now() - startTime,
         timestamp: new Date().toISOString(),
       });

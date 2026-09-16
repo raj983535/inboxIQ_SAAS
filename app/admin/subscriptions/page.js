@@ -101,59 +101,95 @@ export default function AdminSubscriptionsPage() {
         </TableHead>
         <TableBody>
           {subscriptions.length > 0 ? (
-            subscriptions.map((sub) => (
-              <TableRow key={sub.id}>
-                <TableCell>
-                  <div className="font-semibold text-slate-900 dark:text-white">{sub.users?.email || 'N/A'}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-neutral-400">{sub.users?.name || ''}</div>
-                </TableCell>
-                <TableCell>{sub.plan_name}</TableCell>
-                <TableCell>₹{sub.amount} {sub.currency}</TableCell>
-                <TableCell>
-                  <Badge variant={sub.status === 'active' ? 'success' : sub.status === 'created' ? 'brand' : 'warning'}>
-                    {sub.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {sub.razorpay_subscription_id ? (
-                    <div>
-                      <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400">{sub.razorpay_subscription_id}</span>
-                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Subscription ID</div>
-                    </div>
-                  ) : sub.razorpay_order_id ? (
-                    <div>
-                      <span className="font-mono text-xs text-blue-600 dark:text-blue-400">{sub.razorpay_order_id}</span>
-                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Order ID</div>
-                    </div>
-                  ) : sub.razorpay_payment_id ? (
-                    <div>
-                      <span className="font-mono text-xs text-amber-600 dark:text-amber-400">{sub.razorpay_payment_id}</span>
-                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Payment ID</div>
-                    </div>
-                  ) : sub.status === 'trialing' ? (
-                    <div>
-                      <span className="font-mono text-xs text-amber-600 dark:text-amber-400">sub_{sub.id?.substring(0, 8)}</span>
-                      <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">Free Trial (No Card)</div>
-                    </div>
-                  ) : sub.users?.email === 'sahilrajppm2022@gmail.com' ? (
-                    <div>
-                      <span className="font-mono text-xs text-purple-600 dark:text-purple-400">sub_{sub.id?.substring(0, 8)}</span>
-                      <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">System / Admin Tier</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <span className="font-mono text-xs text-slate-600 dark:text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
-                      <div className="text-[10px] text-slate-500 dark:text-neutral-500">Complimentary / Manual</div>
-                    </div>
-                  )}
-                </TableCell>
+            subscriptions.map((sub) => {
+              const rawStatus = sub.status;
+              const trialEnd = sub.trial_ends_at || sub.current_period_end;
+              const isTrialEnded = rawStatus === 'trial_ended' || (rawStatus === 'trialing' && trialEnd && new Date(trialEnd) <= new Date());
+              const isSubEnded = rawStatus === 'subscription_ended' || rawStatus === 'expired' || (rawStatus === 'cancelled' && sub.current_period_end && new Date(sub.current_period_end) <= new Date());
+
+              let badgeText = rawStatus;
+              let badgeVariant = 'default';
+
+              if (rawStatus === 'active') {
+                badgeText = 'active';
+                badgeVariant = 'success';
+              } else if (isTrialEnded) {
+                badgeText = 'End Trial';
+                badgeVariant = 'danger';
+              } else if (isSubEnded) {
+                badgeText = 'End Subscription';
+                badgeVariant = 'danger';
+              } else if (rawStatus === 'trialing') {
+                badgeText = 'trialing';
+                badgeVariant = 'warning';
+              } else if (rawStatus === 'created') {
+                badgeText = 'created';
+                badgeVariant = 'brand';
+              }
+
+              return (
+                <TableRow key={sub.id}>
+                  <TableCell>
+                    <div className="font-semibold text-slate-900 dark:text-white">{sub.users?.email || 'N/A'}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-neutral-400">{sub.users?.name || ''}</div>
+                  </TableCell>
+                  <TableCell>{sub.plan_name}</TableCell>
+                  <TableCell>₹{sub.amount} {sub.currency}</TableCell>
+                  <TableCell>
+                    <Badge variant={badgeVariant}>
+                      {badgeText}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {sub.razorpay_subscription_id ? (
+                      <div>
+                        <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400">{sub.razorpay_subscription_id}</span>
+                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Subscription ID</div>
+                      </div>
+                    ) : sub.razorpay_order_id ? (
+                      <div>
+                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400">{sub.razorpay_order_id}</span>
+                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Order ID</div>
+                      </div>
+                    ) : sub.razorpay_payment_id ? (
+                      <div>
+                        <span className="font-mono text-xs text-amber-600 dark:text-amber-400">{sub.razorpay_payment_id}</span>
+                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Payment ID</div>
+                      </div>
+                    ) : (isTrialEnded || sub.status === 'trial_ended') ? (
+                      <div>
+                        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">sub_{sub.id?.substring(0, 8)}</span>
+                        <div className="text-[10px] text-rose-600 dark:text-rose-500 font-medium">Free Trial Ended</div>
+                      </div>
+                    ) : (isSubEnded || sub.status === 'subscription_ended') ? (
+                      <div>
+                        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">sub_{sub.id?.substring(0, 8)}</span>
+                        <div className="text-[10px] text-rose-600 dark:text-rose-500 font-medium">Subscription Ended</div>
+                      </div>
+                    ) : sub.status === 'trialing' ? (
+                      <div>
+                        <span className="font-mono text-xs text-amber-600 dark:text-amber-400">sub_{sub.id?.substring(0, 8)}</span>
+                        <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">Free Trial (Active)</div>
+                      </div>
+                    ) : sub.users?.email === 'sahilrajppm2022@gmail.com' ? (
+                      <div>
+                        <span className="font-mono text-xs text-purple-600 dark:text-purple-400">sub_{sub.id?.substring(0, 8)}</span>
+                        <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">System / Admin Tier</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="font-mono text-xs text-slate-600 dark:text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
+                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Complimentary / Manual</div>
+                      </div>
+                    )}
+                  </TableCell>
                 <TableCell>
                   <span className="text-xs text-slate-600 dark:text-neutral-400">
                     {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : 'N/A'}
                   </span>
                 </TableCell>
               </TableRow>
-            ))
+            )})
           ) : (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-neutral-400">

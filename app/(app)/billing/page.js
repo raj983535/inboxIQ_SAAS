@@ -30,7 +30,8 @@ export default function BillingPage() {
   const subscription = data?.subscription;
   const isActive = subscription?.status === 'active';
   const isTrialing = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) > new Date();
-  const isTrialExpired = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date();
+  const isTrialExpired = subscription?.status === 'trial_ended' || (subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date());
+  const isSubscriptionExpired = subscription?.status === 'subscription_ended' || subscription?.status === 'expired' || (subscription?.status === 'cancelled' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date());
   const isSubscribed = isActive || isTrialing;
 
   // Calculate trial hours remaining
@@ -220,6 +221,28 @@ export default function BillingPage() {
                 className="shrink-0"
               >
                 Subscribe Now
+              </Button>
+            </div>
+          </Alert>
+        )}
+
+        {isSubscriptionExpired && !isTrialExpired && (
+          <Alert variant="danger" className="border-rose-200 dark:border-rose-800/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+              <div>
+                <strong className="block text-sm font-bold">Your Subscription Has Ended</strong>
+                <span className="text-xs">
+                  Automated briefings are paused. Renew your subscription below to resume daily briefings.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={checkoutLoading}
+                onClick={handleSubscribe}
+                className="shrink-0"
+              >
+                Renew Subscription
               </Button>
             </div>
           </Alert>

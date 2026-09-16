@@ -48,7 +48,8 @@ export default function DashboardPage() {
   const activeGmailCount = gmailConnections.filter((c) => c.status === 'connected').length;
   const isActive = subscription?.status === 'active';
   const isTrialing = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) > new Date();
-  const isTrialExpired = subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date();
+  const isTrialExpired = subscription?.status === 'trial_ended' || (subscription?.status === 'trialing' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date());
+  const isSubscriptionExpired = subscription?.status === 'subscription_ended' || subscription?.status === 'expired' || (subscription?.status === 'cancelled' && subscription?.current_period_end && new Date(subscription.current_period_end) <= new Date());
   const isSubscribed = isActive || isTrialing;
   const trialHoursRemaining = isTrialing
     ? Math.max(0, Math.round((new Date(subscription.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60) * 10) / 10)
@@ -186,13 +187,15 @@ export default function DashboardPage() {
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                    {isTrialExpired ? 'Trial Expired' : 'Subscription Inactive'}
+                    {isTrialExpired ? 'Trial Expired' : isSubscriptionExpired ? 'Subscription Expired' : 'Subscription Inactive'}
                   </span>
                   <Badge variant="danger">Action Required</Badge>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
                   {isTrialExpired
                     ? 'Your 3-day free trial has expired. Upgrade your subscription to resume automated daily email briefings.'
+                    : isSubscriptionExpired
+                    ? 'Your subscription period has ended. Renew your subscription to resume automated scheduled briefings.'
                     : 'Automated email intelligence is locked. Please activate your monthly subscription to enable scheduled briefings.'}
                 </p>
               </div>
@@ -200,7 +203,7 @@ export default function DashboardPage() {
             <div className="shrink-0 w-full sm:w-auto">
               <Link href="/billing" className="block">
                 <Button size="sm" variant="primary" className="w-full sm:w-auto text-xs">
-                  {isTrialExpired ? 'Upgrade Subscription' : 'Activate Subscription'} <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  {isTrialExpired ? 'Upgrade Subscription' : isSubscriptionExpired ? 'Renew Subscription' : 'Activate Subscription'} <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </Link>
             </div>

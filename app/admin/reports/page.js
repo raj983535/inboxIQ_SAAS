@@ -106,9 +106,15 @@ export default function AdminReportsPage() {
                 <TableCell className="font-semibold text-slate-900 dark:text-white">{r.users?.email || 'N/A'}</TableCell>
                 <TableCell>{r.report_date}</TableCell>
                 <TableCell>
-                  <Badge variant={r.status === 'delivered' ? 'success' : r.status === 'failed' ? 'danger' : 'brand'}>
-                    {r.status}
-                  </Badge>
+                  {r.report_type === 'renewal_reminder_trial' ? (
+                    <Badge variant="warning">Renewal Reminder</Badge>
+                  ) : r.report_type === 'renewal_reminder_subscription' ? (
+                    <Badge variant="danger">Renewal Reminder</Badge>
+                  ) : (
+                    <Badge variant={r.status === 'delivered' ? 'success' : r.status === 'failed' ? 'danger' : 'brand'}>
+                      {r.status}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant={r.email_delivery_status === 'delivered' ? 'success' : 'warning'}>
@@ -116,9 +122,13 @@ export default function AdminReportsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={r.drive_upload_status === 'uploaded' ? 'purple' : 'warning'}>
-                    {r.drive_upload_status}
-                  </Badge>
+                  {r.report_type?.startsWith('renewal_reminder') ? (
+                    <span className="text-xs text-slate-400 dark:text-neutral-500">N/A (Email)</span>
+                  ) : (
+                    <Badge variant={r.drive_upload_status === 'uploaded' ? 'purple' : 'warning'}>
+                      {r.drive_upload_status}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className="text-xs text-slate-600 dark:text-neutral-400">

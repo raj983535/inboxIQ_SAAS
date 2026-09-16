@@ -62,6 +62,32 @@ export async function GET() {
         .then();
     }
 
+    // AUTO-HEAL: If trial end date has passed, immediately transition to 'trial_ended'
+    if (activeSub && activeSub.status === 'trialing' && activeSub.trial_ends_at && new Date(activeSub.trial_ends_at) <= new Date()) {
+      activeSub.status = 'trial_ended';
+      supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status: 'trial_ended',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeSub.id)
+        .then();
+    }
+
+    // AUTO-HEAL: If cancelled subscription period has ended, transition to 'subscription_ended'
+    if (activeSub && activeSub.status === 'cancelled' && activeSub.current_period_end && new Date(activeSub.current_period_end) <= new Date()) {
+      activeSub.status = 'subscription_ended';
+      supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status: 'subscription_ended',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeSub.id)
+        .then();
+    }
+
     // If subscription is not active, but user is authorized Admin / Owner (or has paid):
     const isOwnerOrAdmin = checkIsAdmin(user);
     if ((!activeSub || activeSub.status !== 'active') && isOwnerOrAdmin) {

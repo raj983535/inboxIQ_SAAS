@@ -75,7 +75,7 @@ export async function GET(req) {
         status,
         created_at,
         user_settings (report_time, timezone, onboarding_completed),
-        subscriptions (status, plan_name),
+        subscriptions (status, plan_name, trial_ends_at, current_period_end),
         gmail_connections (id, connection_slot, status),
         google_drive_connections (id, status)
       `)

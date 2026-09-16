@@ -26,6 +26,8 @@ export async function GET() {
         status,
         current_period_start,
         current_period_end,
+        trial_ends_at,
+        trial_claimed,
         created_at,
         users (id, email, name)
       `)

@@ -110,7 +110,31 @@ export default function AdminUsersPage() {
             users.map((u) => {
               const gmailActive = (u.gmail_connections || []).filter((c) => c.status === 'connected').length;
               const subObj = u.subscription || (Array.isArray(u.subscriptions) ? u.subscriptions[0] : u.subscriptions);
-              const isSubscribed = subObj?.status === 'active';
+              const rawStatus = subObj?.status || 'inactive';
+              const trialEnd = subObj?.trial_ends_at || subObj?.current_period_end;
+              const isTrialEnded = rawStatus === 'trial_ended' || (rawStatus === 'trialing' && trialEnd && new Date(trialEnd) <= new Date());
+              const isSubEnded = rawStatus === 'subscription_ended' || rawStatus === 'expired' || (rawStatus === 'cancelled' && subObj?.current_period_end && new Date(subObj.current_period_end) <= new Date());
+
+              let badgeText = rawStatus;
+              let badgeVariant = 'default';
+
+              if (rawStatus === 'active') {
+                badgeText = 'active';
+                badgeVariant = 'success';
+              } else if (isTrialEnded) {
+                badgeText = 'End Trial';
+                badgeVariant = 'danger';
+              } else if (isSubEnded) {
+                badgeText = 'End Subscription';
+                badgeVariant = 'danger';
+              } else if (rawStatus === 'trialing') {
+                badgeText = 'trialing';
+                badgeVariant = 'warning';
+              } else if (rawStatus === 'created') {
+                badgeText = 'created';
+                badgeVariant = 'brand';
+              }
+
               const driveObj = u.drive_connection || (Array.isArray(u.google_drive_connections) ? u.google_drive_connections[0] : u.google_drive_connections);
               const settingsObj = u.user_settings && !Array.isArray(u.user_settings) ? u.user_settings : (u.user_settings?.[0] || null);
 
@@ -126,8 +150,8 @@ export default function AdminUsersPage() {
                     <Badge variant={u.role === 'admin' ? 'danger' : 'default'}>{u.role}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={isSubscribed ? 'success' : 'warning'}>
-                      {subObj?.status || 'inactive'}
+                    <Badge variant={badgeVariant}>
+                      {badgeText}
                     </Badge>
                   </TableCell>
                   <TableCell>
