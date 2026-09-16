@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import {
   User,
   Mail,
-  HardDrive,
   CreditCard,
   Clock,
   ArrowLeft,
@@ -169,21 +168,6 @@ export default function AdminUserDetailPage() {
             ))
           ) : (
             <p className="text-xs text-slate-500 dark:text-neutral-400">No Gmail accounts connected.</p>
-          )}
-
-          {drive_connection && (
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <HardDrive className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                <div>
-                  <span className="font-semibold text-slate-900 dark:text-white">{drive_connection.account_email}</span>
-                  <span className="text-slate-500 dark:text-neutral-400 ml-2">(Google Drive Archival)</span>
-                </div>
-              </div>
-              <Badge variant={drive_connection.status === 'connected' ? 'purple' : 'danger'}>
-                {drive_connection.status}
-              </Badge>
-            </div>
           )}
         </CardContent>
       </Card>

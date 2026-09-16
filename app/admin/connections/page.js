@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, HardDrive, RefreshCw } from 'lucide-react';
+import { Mail, RefreshCw } from 'lucide-react';
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,7 @@ export default function AdminConnectionsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Google Connections Health</h1>
           <p className="text-xs text-slate-500 dark:text-neutral-400">
-            Operational status of linked Gmail mailboxes and Google Drive archival targets. (Refresh tokens are encrypted and never shown)
+            Operational status of linked Gmail mailboxes. (Refresh tokens are encrypted and never shown)
           </p>
         </div>
         <Button
@@ -129,52 +129,6 @@ export default function AdminConnectionsPage() {
                     </span>
                   ) : (
                     'No Gmail connections found.'
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Drive Connections Table */}
-      <div className="space-y-3 pt-4">
-        <h2 className="text-base font-bold flex items-center gap-2">
-          <HardDrive className="w-4 h-4 text-purple-500 dark:text-purple-400" /> Google Drive Archival Folders
-        </h2>
-        <Table>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>InboxIQ User</TableHeaderCell>
-              <TableHeaderCell>Drive Account</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>Reports Folder ID</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
-            {data.drive_connections.length > 0 ? (
-              data.drive_connections.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell>{d.users?.email || 'N/A'}</TableCell>
-                  <TableCell className="font-semibold text-slate-900 dark:text-white">{d.account_email}</TableCell>
-                  <TableCell>
-                    <Badge variant={d.status === 'connected' ? 'purple' : 'danger'}>{d.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-mono text-xs">{d.reports_folder_id || 'Auto-created'}</span>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-6 text-slate-500 dark:text-neutral-400">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />
-                      Loading...
-                    </span>
-                  ) : (
-                    'No Google Drive connections found.'
                   )}
                 </TableCell>
               </TableRow>

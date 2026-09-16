@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
-import { Readable } from 'stream';
 import { verifyInternalAuth } from '@/lib/internal-auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { decryptToken } from '@/lib/encryption';
-import { getGoogleOAuth2Client } from '@/lib/google/oauth';
 import { formatSafeErrorResponse, AppError, ErrorCategories } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
@@ -16,93 +11,21 @@ export async function POST(req) {
     const auth = verifyInternalAuth(req, rawBody);
     correlationId = auth.correlationId;
 
-    let body;
-    try {
-      body = JSON.parse(rawBody);
-    } catch (e) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Malformed JSON body.', 400);
-    }
-
-    const { user_id, execution_id, pdf_base64, file_name } = body;
-
-    if (!user_id || typeof user_id !== 'string') {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing or invalid user_id.', 400);
-    }
-    if (!pdf_base64 || !file_name) {
-      return NextResponse.json({
-        success: true,
-        uploaded: false,
-        status: 'skipped',
-        message: 'No PDF data provided to upload.',
-      });
-    }
-
-    // 1. Sanitize file name to prevent path traversal
-    const sanitizedFileName = file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    // 2. Resolve Drive Connection strictly belonging to user_id
-    const { data: driveConn, error: driveErr } = await supabaseAdmin
-      .from('google_drive_connections')
-      .select('id, encrypted_refresh_token, reports_folder_id, status')
-      .eq('user_id', user_id)
-      .maybeSingle();
-
-    if (driveErr || !driveConn || driveConn.status !== 'connected' || !driveConn.encrypted_refresh_token) {
-      return NextResponse.json({
-        success: true,
-        uploaded: false,
-        status: 'skipped',
-        message: 'Google Drive is not connected for this user.',
-      });
-    }
-
-    // 3. Server-side token decryption & Google Drive Client
-    const refreshToken = decryptToken(driveConn.encrypted_refresh_token);
-    const oauth2Client = getGoogleOAuth2Client();
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-    const drive = google.drive({ version: 'v3', auth: oauth2Client });
-
-    // 4. Convert Base64 into stream
-    const pdfBuffer = Buffer.from(pdf_base64, 'base64');
-    const stream = new Readable();
-    stream.push(pdfBuffer);
-    stream.push(null);
-
-    const targetFolderId = driveConn.reports_folder_id || undefined;
-    const fileMetadata = {
-      name: sanitizedFileName,
-      parents: targetFolderId ? [targetFolderId] : undefined,
-    };
-
-    const media = {
-      mimeType: 'application/pdf',
-      body: stream,
-    };
-
-    const file = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: 'id, name, webViewLink',
-    });
-
-    return NextResponse.json({
-      success: true,
-      uploaded: true,
-      status: 'uploaded',
-      file_id: file.data?.id,
-      file_name: file.data?.name,
-      folder_id: targetFolderId,
-    });
-  } catch (error) {
-    // Graceful fallback: Do not throw 500 error if drive upload fails.
-    // Core report is delivered via email; drive is non-blocking.
-    console.warn(`[DriveUpload] Google Drive upload failed for correlation ${correlationId}:`, error.message);
+    // Graceful non-blocking no-op: Google Drive archival is disabled in favor of Gmail-only delivery.
     return NextResponse.json({
       success: true,
       uploaded: false,
-      status: 'failed',
-      message: error.message || 'Google Drive upload encountered an error.',
+      status: 'skipped',
+      message: 'Google Drive archival is disabled. Reports are delivered directly to Gmail.',
+    });
+  } catch (error) {
+    // Return safe 200 response to prevent breaking any legacy workflow node
+    console.warn(`[DriveUpload] Google Drive upload stub bypassed for correlation ${correlationId}:`, error.message);
+    return NextResponse.json({
+      success: true,
+      uploaded: false,
+      status: 'skipped',
+      message: error.message || 'Google Drive archival skipped.',
     });
   }
 }

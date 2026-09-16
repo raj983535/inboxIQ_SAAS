@@ -11,9 +11,7 @@ export default function AdminSettingsPage() {
   const [maxSlots] = useState('2');
   const [facultyPricing] = useState('₹499 / mo (INR) | $6.99 / mo (USD)');
   const [studentPricing] = useState('₹99 / mo (INR) | $1.99 / mo (USD)');
-  const [othersPricing] = useState('₹499 / mo (INR) | $6.99 / mo (USD)');
   const [deliveryWindow] = useState('06:00 AM - 10:00 AM (Multi-timezone)');
-  const [driveArchival] = useState('Google Drive / InboxIQ / Daily Reports');
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e) => {
@@ -106,13 +104,13 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            {/* Google Drive Archival Settings */}
+            {/* Briefing Delivery Channel */}
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-1">
-              <div className="text-xs font-semibold text-slate-500 dark:text-neutral-400 uppercase tracking-wider">Drive PDF Archival Target Folder</div>
-              <div className="text-sm sm:text-base font-bold font-mono text-purple-600 dark:text-purple-300 break-all">
-                Google Drive &gt; InboxIQ &gt; Daily Reports
+              <div className="text-xs font-semibold text-slate-500 dark:text-neutral-400 uppercase tracking-wider">Briefing Delivery Channel</div>
+              <div className="text-sm sm:text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all">
+                Direct Gmail Inbox (Responsive HTML Briefing)
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-neutral-400 pt-1">Auto-created for users linking Google Drive in onboarding or settings</p>
+              <p className="text-[11px] text-slate-500 dark:text-neutral-400 pt-1">Automated morning executive reports delivered directly to subscriber&apos;s primary Gmail</p>
             </div>
           </CardContent>
           <CardFooter className="border-t border-neutral-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-900/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

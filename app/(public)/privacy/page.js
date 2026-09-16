@@ -39,8 +39,8 @@ export default function PrivacyPage() {
               <li><strong>Authentication Data:</strong> User identifiers and session information provided through our authentication system.</li>
               <li><strong>Subscription &amp; Billing Metadata:</strong> Active subscription tier, payment status, currency, and renewal dates.</li>
               <li><strong>Connected Google Account Metadata:</strong> Account email addresses, connection slots, and connection timestamps.</li>
-              <li><strong>Encrypted OAuth Tokens:</strong> Scoped OAuth refresh tokens required to access authorized Gmail and Google Drive services.</li>
-              <li><strong>Operational &amp; Report Metadata:</strong> Timestamps of report generation, delivery logs, PDF archival status, and error logs.</li>
+              <li><strong>Encrypted OAuth Tokens:</strong> Scoped OAuth refresh tokens required to access authorized Gmail services.</li>
+              <li><strong>Operational &amp; Report Metadata:</strong> Timestamps of report generation, delivery logs, executive summary metadata, and error logs.</li>
               <li><strong>Support Inquiries:</strong> Communications and details submitted through our contact form.</li>
             </ul>
           </section>
@@ -126,13 +126,13 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          {/* 7. Google Drive */}
+          {/* 7. Report Delivery */}
           <section className="space-y-2">
             <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-              7. Google Drive Archival
+              7. Report Delivery &amp; Retention
             </h2>
             <p>
-              If you authorize Google Drive integration, InboxIQ accesses your Drive strictly within an isolated application folder to upload and organize PDF archives of your daily reports. We do not read or access other personal files or documents in your Google Drive.
+              Generated daily briefing summaries are delivered as responsive HTML emails directly to your primary authorized Gmail inbox. We do not store full raw email archives or full email bodies in our application database.
             </p>
           </section>
 
@@ -182,7 +182,7 @@ export default function PrivacyPage() {
               You maintain full control over your connected accounts and personal information:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-neutral-600 dark:text-neutral-300">
-              <li><strong>Disconnect Accounts:</strong> You can disconnect Gmail and Google Drive at any time, immediately removing stored OAuth tokens.</li>
+              <li><strong>Disconnect Accounts:</strong> You can disconnect your Gmail accounts at any time from Settings, immediately removing stored OAuth tokens.</li>
               <li><strong>Update Settings:</strong> You can adjust report schedules, timezones, and contact details in Account Settings.</li>
               <li><strong>Cancel Subscriptions:</strong> You can manage or cancel your active subscription plan via the billing dashboard.</li>
               <li><strong>Support Requests:</strong> You can reach out to our support team for data deletion requests.</li>

@@ -49,7 +49,7 @@ export default function LandingPage() {
     },
     {
       q: 'Where do I receive the daily intelligence briefing?',
-      a: 'The daily report is delivered directly to your primary Gmail inbox every morning at your configured time (e.g. 08:00 AM in your chosen timezone). Additionally, an executive PDF archive is automatically generated and saved to your linked Google Drive folder.',
+      a: 'The daily report is delivered directly to your primary Gmail inbox every morning at your configured time (e.g. 08:00 AM in your chosen timezone) as a beautifully formatted, actionable executive briefing.',
     },
     {
       q: 'Can I customize the delivery time and timezone?',
@@ -105,7 +105,7 @@ export default function LandingPage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 2 Gmail Accounts Supported
           </span>
           <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Automatic Google Drive PDF Archival
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Instant Executive Gmail Briefing
           </span>
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Tailored for Faculty, Students &amp; Professionals
@@ -232,9 +232,9 @@ export default function LandingPage() {
             },
             {
               step: '04',
-              title: 'Morning Delivery & Drive Archive',
-              desc: 'Get your executive HTML briefing in Gmail and a PDF saved into Google Drive.',
-              icon: <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />,
+              title: 'Morning Executive Delivery',
+              desc: 'Get your structured, actionable executive HTML briefing delivered straight to Gmail.',
+              icon: <Mail className="w-5 h-5 text-purple-600 dark:text-purple-400" />,
             },
           ].map((item, idx) => (
             <Card key={idx} className="relative group hover:border-emerald-500/50 transition-all">
@@ -374,10 +374,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Drive Archival Confirmation */}
+            {/* Delivery Confirmation */}
             <div className="text-[11px] text-neutral-400 border-t border-neutral-100 dark:border-neutral-800 pt-4 flex items-center justify-between">
-              <span>PDF Archive: Google Drive &gt; InboxIQ &gt; Daily Reports &gt; 2026-09-05.pdf</span>
-              <span className="text-emerald-500 font-medium">✓ Archived Automatically</span>
+              <span>Format: Responsive HTML Executive Briefing</span>
+              <span className="text-emerald-500 font-medium">✓ Delivered Straight to Gmail</span>
             </div>
           </div>
         </Card>

@@ -49,7 +49,7 @@ export default function ShippingPolicyPage() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-neutral-600 dark:text-neutral-300">
               <li>Your account access and paid subscription tier features are activated immediately on the InboxIQ web platform.</li>
-              <li>You can immediately connect your authorized Gmail and Google Drive accounts.</li>
+              <li>You can immediately connect your authorized Gmail accounts.</li>
               <li>Your automated daily email intelligence briefings will commence at your selected morning schedule and timezone.</li>
             </ul>
           </section>
@@ -64,7 +64,6 @@ export default function ShippingPolicyPage() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-neutral-600 dark:text-neutral-300">
               <li><strong>Gmail:</strong> Structured daily executive email briefing sent directly to your connected primary inbox.</li>
-              <li><strong>Google Drive:</strong> Automatic daily PDF report archives saved to your designated <code>InboxIQ / Daily Reports</code> folder.</li>
               <li><strong>Web Dashboard:</strong> Live report status, execution history, and connection controls available 24/7 at <a href="https://inboxiq.online/dashboard" className="text-emerald-600 underline">https://inboxiq.online/dashboard</a>.</li>
             </ul>
           </section>

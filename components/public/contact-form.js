@@ -162,7 +162,7 @@ export function ContactFormClient() {
                 />
                 <Input
                   label="Subject (Optional)"
-                  placeholder="e.g. Question about Google Drive integration"
+                  placeholder="e.g. Question about Gmail integration or report scheduling"
                   value={formData.subject}
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 />

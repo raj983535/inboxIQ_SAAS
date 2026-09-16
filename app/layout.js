@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'InboxIQ — AI-Powered Email Intelligence for Professionals',
-  description: 'Connect your Gmail accounts, let external intelligence organize your actionable priorities, and receive structured daily briefings in Gmail and Google Drive.',
+  description: 'Connect your Gmail accounts, let external intelligence organize your actionable priorities, and receive structured daily briefings in Gmail.',
   keywords: ['Email Intelligence', 'Daily Email Digest', 'AI Email Report', 'Faculty Productivity', 'Executive Email Summary'],
 };
 

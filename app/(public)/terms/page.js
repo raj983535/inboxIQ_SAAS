@@ -42,7 +42,7 @@ export default function TermsPage() {
               2. About InboxIQ
             </h2>
             <p>
-              InboxIQ is an AI-powered email intelligence Software-as-a-Service (SaaS) platform. The platform connects to supported, user-authorized third-party services—such as Gmail and Google Drive—to process email metadata and content on a scheduled basis and generate structured, actionable executive intelligence reports delivered to your inbox and Google Drive.
+              InboxIQ is an AI-powered email intelligence Software-as-a-Service (SaaS) platform. The platform connects to supported, user-authorized third-party services—such as Gmail—to process email metadata and content on a scheduled basis and generate structured, actionable executive intelligence reports delivered directly to your inbox.
             </p>
           </section>
 
@@ -62,7 +62,7 @@ export default function TermsPage() {
               4. Google Account Connections &amp; Authorization
             </h2>
             <p>
-              InboxIQ allows users to connect supported Google accounts (Gmail and Google Drive) through standard Google OAuth authorization flows.
+              InboxIQ allows users to connect supported Google accounts (Gmail) through standard Google OAuth authorization flows.
             </p>
             <ul className="list-disc pl-5 space-y-1 text-neutral-600 dark:text-neutral-300">
               <li>InboxIQ never requests, stores, or has access to your Google or Gmail account passwords.</li>
@@ -92,13 +92,13 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 7. Google Drive Archive */}
+          {/* 7. Briefing Format & Delivery */}
           <section className="space-y-2">
             <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-              7. Google Drive Archival
+              7. Briefing Format &amp; Delivery
             </h2>
             <p>
-              Users may optionally authorize Google Drive integration so that generated daily briefing summaries are automatically compiled into PDF format and archived to an isolated folder in your Google Drive (e.g., <code>InboxIQ / Daily Reports</code>).
+              Daily intelligence summaries are compiled into structured, responsive HTML executive briefings delivered directly to your primary authorized Gmail inbox. Users can review, pin, or organize these briefings within their email application.
             </p>
           </section>
 

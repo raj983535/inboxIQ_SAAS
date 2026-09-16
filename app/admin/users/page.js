@@ -100,7 +100,6 @@ export default function AdminUsersPage() {
             <TableHeaderCell>Role</TableHeaderCell>
             <TableHeaderCell>Subscription</TableHeaderCell>
             <TableHeaderCell>Gmail Slots</TableHeaderCell>
-            <TableHeaderCell>Google Drive</TableHeaderCell>
             <TableHeaderCell>Schedule</TableHeaderCell>
             <TableHeaderCell>Action</TableHeaderCell>
           </tr>
@@ -156,11 +155,6 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell>
                     <span className="text-xs font-mono">{gmailActive} / 2 Connected</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={driveObj?.status === 'connected' ? 'purple' : 'default'}>
-                      {driveObj?.status === 'connected' ? 'Linked' : 'None'}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-xs text-slate-600 dark:text-neutral-300">

@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
   Mail,
-  HardDrive,
   Clock,
   CreditCard,
   ArrowRight,
@@ -39,7 +38,6 @@ export default function OnboardingPage() {
   const [reportTime, setReportTime] = useState('08:00');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [gmail1Connected, setGmail1Connected] = useState(false);
-  const [driveConnected, setDriveConnected] = useState(false);
   const [gmailAccounts, setGmailAccounts] = useState([]);
   const [userData, setUserData] = useState(null);
   const [profile, setProfile] = useState({
@@ -86,12 +84,10 @@ export default function OnboardingPage() {
     }
 
     const hasGmail = gmailConnections.some((c) => c.connection_slot === 1 && c.status === 'connected');
-    const hasDrive = driveConnection?.status === 'connected';
     const isProfileDone = Boolean(settings?.profile_completed || (user?.name && user?.profession));
 
     setGmailAccounts(gmailConnections);
     setGmail1Connected(hasGmail);
-    setDriveConnected(hasDrive);
 
     // Note: Do not forcefully redirect out of onboarding if user intentionally navigated here
     // Instead, allow them to view or review their setup steps, or click Go to Dashboard
@@ -289,7 +285,7 @@ export default function OnboardingPage() {
 
   const steps = [
     { num: 1, title: 'Profile Setup', desc: 'Personalize your AI briefing' },
-    { num: 2, title: 'Connect Mailbox', desc: 'Link 1 Gmail & Google Drive' },
+    { num: 2, title: 'Connect Mailbox', desc: 'Link your primary Gmail' },
     { num: 3, title: 'Start Free Trial', desc: 'Try 3 days free — no card needed' },
   ];
 
@@ -467,14 +463,14 @@ export default function OnboardingPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* STEP 2: CONNECT GOOGLE (1 GMAIL + 1 DRIVE) */}
+        {/* STEP 2: CONNECT GMAIL */}
         {/* ========================================================================= */}
         {step === 2 && (
           <Card className="shadow-xl">
             <CardHeader>
-              <CardTitle>Step 2: Connect Your Google Mailbox &amp; Drive</CardTitle>
+              <CardTitle>Step 2: Connect Your Gmail Mailbox</CardTitle>
               <CardDescription>
-                InboxIQ analyzes your primary mailbox and archives formatted PDF reports to your Google Drive.
+                InboxIQ securely connects to your primary mailbox via Google OAuth to analyze priorities and deliver daily executive briefings.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -500,32 +496,6 @@ export default function OnboardingPage() {
                     <a href="/api/google/connect?type=gmail&slot=1" className="block w-full sm:w-auto">
                       <Button variant="primary" size="sm" className="w-full sm:w-auto">
                         Connect Primary Gmail
-                      </Button>
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Google Drive Slot */}
-              <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600 shrink-0">
-                    <HardDrive className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Google Drive Archival</h4>
-                    <p className="text-xs text-neutral-500">
-                      {driveConnected ? 'Connected (Folder: My Drive > InboxIQ > Daily Reports)' : 'Optional — Archives PDF briefings directly to Drive'}
-                    </p>
-                  </div>
-                </div>
-                <div className="w-full sm:w-auto">
-                  {driveConnected ? (
-                    <Badge variant="success">✓ Connected</Badge>
-                  ) : (
-                    <a href="/api/google/connect?type=drive" className="block w-full sm:w-auto">
-                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                        Connect Google Drive
                       </Button>
                     </a>
                   )}

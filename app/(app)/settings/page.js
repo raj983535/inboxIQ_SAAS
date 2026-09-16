@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Mail,
-  HardDrive,
   Clock,
   User,
   Shield,
@@ -429,54 +428,6 @@ export default function SettingsPage() {
                 </div>
               );
             })()}
-          </CardContent>
-        </Card>
-
-        {/* 4. Google Drive Archival */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Google Drive Archival Connection</CardTitle>
-            <CardDescription>
-              Stores generated PDF executive reports directly into <code>My Drive &gt; InboxIQ &gt; Daily Reports</code>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold">
-                  <HardDrive className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {driveConnection?.account_email || 'Google Drive (Not Connected)'}
-                  </div>
-                  <p className="text-xs text-neutral-400">
-                    {driveConnection ? `Status: ${driveConnection.status}` : 'PDF reports will not be archived until connected'}
-                  </p>
-                </div>
-              </div>
-              <div>
-                {driveConnection && driveConnection.status === 'connected' ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="purple">Linked</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDisconnectModal({ open: true, type: 'drive', id: driveConnection.id, email: driveConnection.account_email })}
-                      className="text-rose-600 hover:text-rose-700"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Disconnect
-                    </Button>
-                  </div>
-                ) : (
-                  <a href="/api/google/connect?type=drive">
-                    <Button size="sm" variant="primary">
-                      Connect Google Drive
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

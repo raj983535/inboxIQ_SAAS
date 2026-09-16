@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Mail,
-  HardDrive,
   Clock,
   CreditCard,
   CheckCircle2,
@@ -329,35 +328,25 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Google Drive Status */}
+          {/* Briefing Delivery Status */}
           <Card className="hover:border-emerald-500/40 transition-colors">
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">PDF Archival</span>
-                <HardDrive className="w-4 h-4 text-neutral-400" />
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Delivery Target</span>
+                <Mail className="w-4 h-4 text-neutral-400" />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black text-neutral-900 dark:text-white">
-                    {loading && !data ? (
-                      <span className="inline-block w-20 h-6 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
-                    ) : isDriveConnected ? (
-                      'Google Drive'
-                    ) : (
-                      'Not Linked'
-                    )}
+                    Gmail Inbox
                   </h3>
-                  <p className="text-[11px] text-neutral-400">
-                    {loading && !data ? 'Checking...' : isDriveConnected ? 'InboxIQ / Daily Reports' : 'Connect in Settings'}
+                  <p className="text-[11px] text-neutral-400 truncate max-w-[130px]">
+                    {loading && !data ? 'Checking...' : user?.email || 'Primary Account'}
                   </p>
                 </div>
-                {loading && !data ? (
-                  <span className="inline-block w-14 h-5 bg-neutral-200 dark:bg-neutral-800 rounded-full animate-pulse" />
-                ) : (
-                  <Badge variant={isDriveConnected ? 'purple' : 'default'}>
-                    {isDriveConnected ? 'Linked' : 'Not Connected'}
-                  </Badge>
-                )}
+                <Badge variant={activeGmailCount > 0 ? 'success' : 'default'}>
+                  {activeGmailCount > 0 ? 'Verified' : 'Pending'}
+                </Badge>
               </div>
             </CardContent>
           </Card>
@@ -502,7 +491,7 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="text-2xl font-black">Tomorrow @ {settings?.report_time || '08:00 AM'}</h3>
                 <p className="text-xs text-neutral-400 leading-relaxed">
-                  The automation pipeline will aggregate your connected Gmail accounts, identify action items with AI, deliver the HTML report to your primary email, and save the PDF to Google Drive.
+                  The automation pipeline will aggregate your connected Gmail accounts, identify action items with AI, and deliver the executive briefing directly to your primary inbox.
                 </p>
                 <div className="pt-2">
                   <Link href="/settings">

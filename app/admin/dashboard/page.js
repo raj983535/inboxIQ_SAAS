@@ -6,7 +6,6 @@ import {
   Users,
   CreditCard,
   Mail,
-  HardDrive,
   FileText,
   AlertTriangle,
   GitBranch,
@@ -177,7 +176,7 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-[11px] text-slate-500 dark:text-neutral-400 min-h-[16px]">
               {stats ? (
-                `${stats.reportsArchived} Drive PDFs archived`
+                `Delivered directly to Gmail`
               ) : (
                 <span className="inline-block h-3.5 w-32 bg-slate-100 dark:bg-neutral-800/60 animate-pulse rounded" />
               )}

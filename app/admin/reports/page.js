@@ -71,7 +71,7 @@ export default function AdminReportsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Report Execution Metadata</h1>
           <p className="text-xs text-slate-500 dark:text-neutral-400">
-            Delivery confirmation to Gmail and PDF upload status to Google Drive. (Raw email text is not stored)
+            Delivery confirmation to Gmail and execution audit trail. (Raw email text is not stored)
           </p>
         </div>
         <Button

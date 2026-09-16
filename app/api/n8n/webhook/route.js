@@ -106,7 +106,7 @@ export async function POST(req) {
         .update({
           status: status === 'failed' ? 'failed' : 'delivered',
           email_delivery_status: email_delivery_status || 'delivered',
-          drive_upload_status: drive_upload_status || 'uploaded',
+          drive_upload_status: drive_upload_status || 'skipped',
           executive_summary: executive_summary || null,
           generated_at: new Date().toISOString(),
         })

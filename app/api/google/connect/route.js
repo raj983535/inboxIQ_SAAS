@@ -19,19 +19,24 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
 
-    const type = searchParams.get('type') || 'gmail'; // 'gmail' | 'drive'
+    const type = searchParams.get('type') || 'gmail'; // 'gmail' only
     const slot = parseInt(searchParams.get('slot') || '1', 10);
 
-    if (type !== 'gmail' && type !== 'drive') {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid connection type requested.', 400);
+    if (type === 'drive') {
+      // Gracefully redirect legacy drive connection requests back to settings
+      return NextResponse.redirect(new URL('/settings', req.url));
     }
 
-    if (type === 'gmail' && (slot !== 1 && slot !== 2)) {
+    if (type !== 'gmail') {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid connection type requested. Only Gmail is supported.', 400);
+    }
+
+    if (slot !== 1 && slot !== 2) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid Gmail connection slot. Must be 1 or 2.', 400);
     }
 
     const oauth2Client = getGoogleOAuth2Client();
-    const scopes = type === 'gmail' ? GOOGLE_SCOPES.GMAIL : GOOGLE_SCOPES.DRIVE;
+    const scopes = GOOGLE_SCOPES.GMAIL;
 
     const state = generateOAuthState({
       userId: user.id,

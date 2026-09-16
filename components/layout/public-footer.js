@@ -16,7 +16,7 @@ export function PublicFooter() {
               <span className="text-xl font-black">Inbox<span className="text-emerald-600 dark:text-emerald-400">IQ</span></span>
             </Link>
             <p className="text-xs md:text-sm text-neutral-500 dark:text-neutral-400 max-w-sm leading-relaxed">
-              InboxIQ is an AI-powered email intelligence platform that turns busy Gmail inboxes into structured, actionable daily executive briefings delivered directly to your inbox and archived to Google Drive.
+              InboxIQ is an AI-powered email intelligence platform that turns busy Gmail inboxes into structured, actionable daily executive briefings delivered directly to your inbox every morning.
             </p>
             <div className="flex items-center gap-2 text-xs text-neutral-500">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />

@@ -42,7 +42,6 @@ export async function GET() {
         supabase: { name: 'Supabase PostgreSQL DB', status: supabaseStatus, note: 'Relational schema & RLS active' },
         clerk: { name: 'Clerk Identity Layer', status: clerkStatus, note: 'User & Admin session management' },
         google_oauth: { name: 'Google OAuth & Gmail API', status: googleStatus, note: 'AES-256-GCM encrypted tokens' },
-        google_drive: { name: 'Google Drive API', status: googleStatus, note: 'PDF archival storage' },
         razorpay: { name: 'Razorpay Billing Gateway', status: razorpayStatus, note: '₹499/mo subscription webhook' },
         encryption: { name: 'AES-256-GCM Token Encryption', status: encryptionStatus, note: 'Hardware-backed crypto' },
         n8n: { name: 'n8n Automation Engine', status: n8nStatus, note: 'External processing boundary' },

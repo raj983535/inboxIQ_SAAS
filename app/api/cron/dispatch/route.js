@@ -275,32 +275,18 @@ export async function GET(req) {
     }
 
     // 4. High-Scale Bulk Prefetching (Connections for eligible users)
-    const scheduledUserIds = usersToProcess.map((u) => u.user_id);
+    const { data: allGmailConns } = await supabaseAdmin
+      .from('gmail_connections')
+      .select('id, user_id, connection_slot, account_email, status')
+      .in('user_id', scheduledUserIds)
+      .eq('status', 'connected');
 
-    const [{ data: allGmailConns }, { data: allDriveConns }] = await Promise.all([
-      supabaseAdmin
-        .from('gmail_connections')
-        .select('id, user_id, connection_slot, account_email, status')
-        .in('user_id', scheduledUserIds)
-        .eq('status', 'connected'),
-      supabaseAdmin
-        .from('google_drive_connections')
-        .select('id, user_id, account_email, reports_folder_id, status')
-        .in('user_id', scheduledUserIds)
-        .eq('status', 'connected'),
-    ]);
-
-    // Build O(1) in-memory lookup maps
+    // Build O(1) in-memory lookup map for Gmail
     const gmailMap = new Map();
     for (const g of allGmailConns || []) {
       const list = gmailMap.get(g.user_id) || [];
       list.push(g);
       gmailMap.set(g.user_id, list);
-    }
-
-    const driveMap = new Map();
-    for (const d of allDriveConns || []) {
-      driveMap.set(d.user_id, d);
     }
 
     // 5. Concurrent Chunk Dispatching (Handles 100+ users safely without Vercel timeouts)
@@ -356,7 +342,6 @@ export async function GET(req) {
             return;
           }
 
-          const userDriveConn = driveMap.get(target.user_id) || null;
           const executionId = generateExecutionId();
 
           // Prepare database state for execution
@@ -368,7 +353,7 @@ export async function GET(req) {
                 report_type: 'daily',
                 status: 'queued',
                 email_delivery_status: 'pending',
-                drive_upload_status: 'pending',
+                drive_upload_status: 'skipped',
               },
               { onConflict: 'user_id,report_date,report_type' }
             ),
@@ -390,7 +375,7 @@ export async function GET(req) {
               reportTime: target.report_time,
               timezone: target.timezone,
               gmailConnections: userGmailConns,
-              driveConnection: userDriveConn,
+              driveConnection: null,
               reportDate: localDate,
               executionId: executionId,
               correlationId: correlationId,
