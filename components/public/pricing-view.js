@@ -93,11 +93,9 @@ export function PricingViewClient() {
           </CardContent>
 
           <div className="p-5 sm:p-8 pt-0 space-y-3">
-            <Link href="/sign-up" className="block">
-              <Button size="lg" className="w-full text-sm sm:text-base py-3 sm:py-3.5 shadow-lg shadow-emerald-600/25">
-                Start 3-Day Free Trial ({facultyPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            <Button href="/sign-up" size="lg" className="w-full text-sm sm:text-base py-3 sm:py-3.5 shadow-lg shadow-emerald-600/25">
+              Start 3-Day Free Trial ({facultyPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
             <div className="flex items-center justify-center gap-2 text-[11px] text-neutral-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
               <span>Monthly recurring subscription via Razorpay. Cancel anytime.</span>
@@ -144,11 +142,9 @@ export function PricingViewClient() {
           </CardContent>
 
           <div className="p-5 sm:p-8 pt-0 space-y-3">
-            <Link href="/sign-up" className="block">
-              <Button size="lg" variant="secondary" className="w-full text-sm sm:text-base py-3 sm:py-3.5 border border-neutral-300 dark:border-neutral-700">
-                Start 3-Day Free Trial ({studentPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            <Button href="/sign-up" size="lg" variant="secondary" className="w-full text-sm sm:text-base py-3 sm:py-3.5 border border-neutral-300 dark:border-neutral-700">
+              Start 3-Day Free Trial ({studentPlan.formatted}/mo after) <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
             <div className="flex items-center justify-center gap-2 text-[11px] text-neutral-400">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
               <span>Cancel anytime with 1-click in account dashboard.</span>

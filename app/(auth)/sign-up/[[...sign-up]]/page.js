@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { SignUp } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { SignUp, useAuth } from '@clerk/nextjs';
 import { Mail, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -15,6 +16,24 @@ const isLiveClerk = Boolean(
 
 export default function SignUpPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(true);
+  const router = useRouter();
+
+  let isSignedIn = false;
+  let isLoaded = true;
+  if (isLiveClerk) {
+    try {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const auth = useAuth();
+      isSignedIn = auth.isSignedIn;
+      isLoaded = auth.isLoaded;
+    } catch (e) {}
+  }
+
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, router]);
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 flex flex-col items-center justify-center bg-slate-50 dark:bg-[#080c14] transition-colors">

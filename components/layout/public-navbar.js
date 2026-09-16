@@ -2,12 +2,32 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, Sparkles, Menu, X, ArrowRight } from 'lucide-react';
+import { useUser, UserButton } from '@clerk/nextjs';
+import { Mail, Sparkles, Menu, X, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { Button } from '@/components/ui/button';
 
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const isLiveClerk = Boolean(
+  clerkKey &&
+  clerkKey.startsWith('pk_') &&
+  !clerkKey.includes('placeholder') &&
+  !clerkKey.includes('mock')
+);
+
+function useSafeUser() {
+  if (!isLiveClerk) return { isSignedIn: false, isLoaded: true };
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useUser();
+  } catch (e) {
+    return { isSignedIn: false, isLoaded: true };
+  }
+}
+
 export function PublicNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isSignedIn, isLoaded } = useSafeUser();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
@@ -44,16 +64,23 @@ export function PublicNavbar() {
         {/* Right Action Buttons */}
         <div className="hidden md:flex items-center gap-3">
           <ThemeToggle />
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/sign-up">
-            <Button variant="primary" size="sm">
-              Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </Link>
+          {isLoaded && isSignedIn ? (
+            <div className="flex items-center gap-3">
+              <Button href="/dashboard" variant="primary" size="sm">
+                Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+              {isLiveClerk && <UserButton afterSignOutUrl="/" />}
+            </div>
+          ) : (
+            <>
+              <Button href="/sign-in" variant="ghost" size="sm">
+                Sign In
+              </Button>
+              <Button href="/sign-up" variant="primary" size="sm">
+                Get Started <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -101,16 +128,20 @@ export function PublicNavbar() {
             FAQ
           </Link>
           <div className="pt-4 flex flex-col gap-2">
-            <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
-              <Button variant="outline" className="w-full">
-                Sign In
+            {isLoaded && isSignedIn ? (
+              <Button href="/dashboard" variant="primary" className="w-full" onClick={() => setMobileOpen(false)}>
+                Dashboard
               </Button>
-            </Link>
-            <Link href="/sign-up" onClick={() => setMobileOpen(false)}>
-              <Button variant="primary" className="w-full">
-                Get Started
-              </Button>
-            </Link>
+            ) : (
+              <>
+                <Button href="/sign-in" variant="outline" className="w-full" onClick={() => setMobileOpen(false)}>
+                  Sign In
+                </Button>
+                <Button href="/sign-up" variant="primary" className="w-full" onClick={() => setMobileOpen(false)}>
+                  Get Started
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

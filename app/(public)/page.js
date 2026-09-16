@@ -88,16 +88,12 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/sign-up">
-            <Button size="lg" className="w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-emerald-600/25">
-              Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
-          <a href="#how-it-works">
-            <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5">
-              See How It Works
-            </Button>
-          </a>
+          <Button href="/sign-up" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-emerald-600/25">
+            Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+          <Button href="#how-it-works" variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5">
+            See How It Works
+          </Button>
         </div>
 
         <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
@@ -574,11 +570,9 @@ export default function LandingPage() {
             </CardContent>
 
             <div className="p-8 pt-0">
-              <Link href="/sign-up" className="block">
-                <Button size="lg" className="w-full text-base py-3 shadow-md">
-                  Get Started as Faculty/Pro <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
+              <Button href="/sign-up" size="lg" className="w-full text-base py-3 shadow-md">
+                Get Started as Faculty/Pro <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </div>
           </Card>
 
@@ -616,11 +610,9 @@ export default function LandingPage() {
             </CardContent>
 
             <div className="p-8 pt-0">
-              <Link href="/sign-up" className="block">
-                <Button size="lg" variant="secondary" className="w-full text-base py-3 border border-neutral-300 dark:border-neutral-700">
-                  Get Started as Student <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
+              <Button href="/sign-up" size="lg" variant="secondary" className="w-full text-base py-3 border border-neutral-300 dark:border-neutral-700">
+                Get Started as Student <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </div>
           </Card>
         </div>
@@ -672,11 +664,9 @@ export default function LandingPage() {
             Join professors, students, and professionals who start every day with structured AI email clarity.
           </p>
           <div className="pt-2">
-            <Link href="/sign-up">
-              <Button size="lg" className="bg-white text-neutral-900 hover:bg-neutral-100 text-base px-8 py-3.5 shadow-xl font-bold">
-                Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            <Button href="/sign-up" size="lg" className="bg-white text-neutral-900 hover:bg-neutral-100 text-base px-8 py-3.5 shadow-xl font-bold">
+              Start 3-Day Free Trial <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
           </div>
         </div>
       </section>
