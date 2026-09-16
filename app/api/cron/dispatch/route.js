@@ -20,16 +20,21 @@ export async function GET(req) {
   const startTime = Date.now();
 
   try {
-    // 1. Security Check: Verify CRON_SECRET if configured or internal N8N_WEBHOOK_SECRET
+    // 1. Security Check: Allow Vercel Cron, CRON_SECRET, or internal key
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
     const internalKey = req.headers.get('x-inboxiq-secret') || req.headers.get('x-internal-key');
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const isVercelCron = req.headers.get('x-vercel-cron') === '1';
 
     const isCronAuthorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
-    const isInternalAuthorized = Boolean(webhookSecret && internalKey === webhookSecret);
+    const isInternalAuthorized = Boolean(
+      (webhookSecret && internalKey === webhookSecret) ||
+      (internalSecret && internalKey === internalSecret)
+    );
 
-    if (!isCronAuthorized && !isInternalAuthorized) {
+    if (!isVercelCron && !isCronAuthorized && !isInternalAuthorized) {
       if (process.env.NODE_ENV === 'production' || cronSecret || webhookSecret) {
         throw new AppError(ErrorCategories.AUTH_ERROR, 'Unauthorized cron invocation.', 401);
       }
@@ -96,13 +101,14 @@ export async function GET(req) {
           .in('user_id', allSubUserIds),
         supabaseAdmin
           .from('reports')
-          .select('id, user_id, report_date, status, email_delivery_status, created_at, updated_at')
+          .select('id, user_id, report_date, report_type, status, email_delivery_status, created_at')
           .in('user_id', allSubUserIds)
           .gte('report_date', yesterdayISO),
       ]);
 
       const settingsMap = new Map((settingsList || []).map(s => [s.user_id, s]));
       for (const r of allExistingReports || []) {
+        reportMap.set(`${r.user_id}_${r.report_date}_${r.report_type || 'daily'}`, r);
         reportMap.set(`${r.user_id}_${r.report_date}`, r);
       }
 
@@ -223,6 +229,7 @@ export async function GET(req) {
         try {
           if (rem.isExpiredTrial) {
             await sendTrialExpiredRenewalReminderEmail({
+              userId: rem.user_id,
               email: rem.user_email,
               name: rem.user_name,
               planName: rem.plan_name,
@@ -231,6 +238,7 @@ export async function GET(req) {
             });
           } else {
             await sendSubscriptionExpiredRenewalReminderEmail({
+              userId: rem.user_id,
               email: rem.user_email,
               name: rem.user_name,
               planName: rem.plan_name,
@@ -245,11 +253,11 @@ export async function GET(req) {
             report_type: rem.isExpiredTrial ? 'renewal_reminder_trial' : 'renewal_reminder_subscription',
             status: 'delivered',
             email_delivery_status: 'delivered',
+            drive_upload_status: 'skipped',
             executive_summary: rem.isExpiredTrial
               ? `Daily renewal reminder delivered at ${rem.report_time} (Trial Ended).`
               : `Daily renewal reminder delivered at ${rem.report_time} (Subscription Ended).`,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id, report_date' });
+          }, { onConflict: 'user_id, report_date, report_type' });
 
           remindersDispatched++;
         } catch (remErr) {
@@ -275,6 +283,7 @@ export async function GET(req) {
     }
 
     // 4. High-Scale Bulk Prefetching (Connections for eligible users)
+    const scheduledUserIds = usersToProcess.map(u => u.user_id);
     const { data: allGmailConns } = await supabaseAdmin
       .from('gmail_connections')
       .select('id, user_id, connection_slot, account_email, status')
