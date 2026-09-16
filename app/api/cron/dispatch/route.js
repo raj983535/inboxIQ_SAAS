@@ -62,7 +62,8 @@ export async function GET(req) {
     if (subs && subs.length > 0) {
       const allSubUserIds = subs.map(s => s.user_id).filter(Boolean);
 
-      // Fetch user settings and existing reports for today
+      // Fetch user settings and existing reports for the last 2 days (prevents unbounded query)
+      const yesterdayISO = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0];
       const [{ data: settingsList }, { data: allExistingReports }] = await Promise.all([
         supabaseAdmin
           .from('user_settings')
@@ -71,7 +72,8 @@ export async function GET(req) {
         supabaseAdmin
           .from('reports')
           .select('id, user_id, report_date, status, email_delivery_status, created_at, updated_at')
-          .in('user_id', allSubUserIds),
+          .in('user_id', allSubUserIds)
+          .gte('report_date', yesterdayISO),
       ]);
 
       const settingsMap = new Map((settingsList || []).map(s => [s.user_id, s]));
