@@ -164,9 +164,11 @@ export async function GET(req) {
         const currentTotalMinutes = currentLocalHour * 60 + currentLocalMinute;
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
 
-        // Catch-up Guarantee with Boundary Protection:
-        // Only process if current time has reached or passed scheduled time today (unless forced)
-        if (!isForce && currentTotalMinutes < scheduledTotalMinutes) {
+        // Strict Preferred Time Guard:
+        // In production SaaS, emails (both AI briefings and renewal reminders) must only be delivered
+        // during the user's selected hour (e.g. 07:00-07:59 for 7 AM, 08:00-08:59 for 8 AM) in their timezone.
+        // Overridden only when ?force=true is explicitly passed by authorized admin/test trigger.
+        if (!isForce && currentLocalHour !== scheduledHour) {
           continue;
         }
 
