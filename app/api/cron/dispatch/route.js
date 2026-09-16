@@ -406,6 +406,19 @@ export async function GET(req) {
               n8n_response: n8nRes.response,
             });
           } catch (dispatchErr) {
+            await Promise.all([
+              supabaseAdmin.from('reports').update({
+                status: 'failed',
+                email_delivery_status: 'failed',
+                executive_summary: `Dispatch failed: ${dispatchErr.message}`,
+              }).eq('user_id', target.user_id).eq('report_date', localDate),
+              supabaseAdmin.from('workflow_executions').update({
+                status: 'failed',
+                error_message: dispatchErr.message,
+                completed_at: new Date().toISOString(),
+              }).eq('execution_id', executionId),
+            ]).catch(() => {});
+
             dispatchResults.push({
               user_id: target.user_id,
               user_email: target.user_email,
