@@ -64,7 +64,28 @@ export async function GET(req) {
       );
     }
 
-    const encryptedToken = encryptToken(tokens.refresh_token || 'existing_authorized_session');
+    let encryptedToken = null;
+    if (tokens.refresh_token) {
+      encryptedToken = encryptToken(tokens.refresh_token);
+    } else {
+      // If Google didn't return a new refresh token, preserve existing valid encrypted token if available
+      const { data: existingSlot } = await supabaseAdmin
+        .from('gmail_connections')
+        .select('encrypted_refresh_token')
+        .eq('user_id', userId)
+        .eq('connection_slot', slot)
+        .maybeSingle();
+
+      if (existingSlot?.encrypted_refresh_token && !existingSlot.encrypted_refresh_token.includes('existing_authorized_session')) {
+        encryptedToken = existingSlot.encrypted_refresh_token;
+      } else {
+        throw new AppError(
+          ErrorCategories.AUTH_ERROR,
+          'Google did not provide an offline refresh token. Please reconnect and ensure you grant offline permissions.',
+          400
+        );
+      }
+    }
 
     if (type === 'gmail') {
       // 4. Enforce 2-Gmail limit per user
