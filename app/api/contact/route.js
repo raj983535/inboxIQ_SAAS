@@ -45,7 +45,7 @@ export async function POST(req) {
           success: false,
           error: {
             code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many messages sent. Please wait a few minutes before trying again or email us directly at sahilrajdurgapur23@gmail.com.',
+            message: 'Too many messages sent. Please wait a few minutes before trying again or email us directly at sahilrajppm2022@gmail.com.',
           },
         },
         { status: 429 }
@@ -153,7 +153,7 @@ export async function POST(req) {
         success: false,
         error: {
           code: 'EMAIL_DELIVERY_FAILED',
-          message: "We couldn't send your message right now. Please try again or email us directly at sahilrajdurgapur23@gmail.com.",
+          message: "We couldn't send your message right now. Please try again or email us directly at sahilrajppm2022@gmail.com.",
         },
         correlationId,
       },

@@ -25,10 +25,10 @@ export function PublicFooter() {
             <div className="pt-1 text-xs text-neutral-500">
               Support:{' '}
               <a
-                href="mailto:sahilrajdurgapur23@gmail.com"
+                href="mailto:sahilrajppm2022@gmail.com"
                 className="text-emerald-600 dark:text-emerald-400 font-mono hover:underline"
               >
-                sahilrajdurgapur23@gmail.com
+                sahilrajppm2022@gmail.com
               </a>
             </div>
           </div>

@@ -228,7 +228,7 @@ export default function PrivacyPage() {
               If you have any questions or concerns regarding this Privacy Policy or your data, please contact our support team:
             </p>
             <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-              Email: <a href="mailto:sahilrajdurgapur23@gmail.com" className="hover:underline">sahilrajdurgapur23@gmail.com</a>
+              Email: <a href="mailto:sahilrajppm2022@gmail.com" className="hover:underline">sahilrajppm2022@gmail.com</a>
             </p>
           </section>
 

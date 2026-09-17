@@ -41,7 +41,7 @@ export function ContactFormClient() {
       if (!res.ok || !data.success) {
         throw new Error(
           data.error?.message ||
-            "We couldn't send your message right now. Please try again or email us directly at sahilrajdurgapur23@gmail.com."
+            "We couldn't send your message right now. Please try again or email us directly at sahilrajppm2022@gmail.com."
         );
       }
 
@@ -50,7 +50,7 @@ export function ContactFormClient() {
     } catch (err) {
       setErrorMsg(
         err.message ||
-          "We couldn't send your message right now. Please try again or email us directly at sahilrajdurgapur23@gmail.com."
+          "We couldn't send your message right now. Please try again or email us directly at sahilrajppm2022@gmail.com."
       );
     } finally {
       setLoading(false);
@@ -77,10 +77,10 @@ export function ContactFormClient() {
             </div>
             <p className="text-xs text-neutral-500">Official customer support &amp; inquiries</p>
             <a
-              href="mailto:sahilrajdurgapur23@gmail.com"
+              href="mailto:sahilrajppm2022@gmail.com"
               className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 hover:underline break-all block"
             >
-              sahilrajdurgapur23@gmail.com
+              sahilrajppm2022@gmail.com
             </a>
           </div>
 

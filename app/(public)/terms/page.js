@@ -235,7 +235,7 @@ export default function TermsPage() {
               For inquiries, legal notices, or questions regarding these Terms &amp; Conditions, please contact us at:
             </p>
             <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-              Email: <a href="mailto:sahilrajdurgapur23@gmail.com" className="hover:underline">sahilrajdurgapur23@gmail.com</a>
+              Email: <a href="mailto:sahilrajppm2022@gmail.com" className="hover:underline">sahilrajppm2022@gmail.com</a>
             </p>
           </section>
 
