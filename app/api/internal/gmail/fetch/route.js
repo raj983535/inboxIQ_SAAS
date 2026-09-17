@@ -119,10 +119,38 @@ export async function POST(req) {
     const qInbox = `-in:sent -in:drafts after:${afterEpoch} before:${beforeEpoch}`;
     const qSent = `in:sent after:${afterEpoch} before:${beforeEpoch}`;
 
+    let fetchError = null;
+    let authRevoked = false;
+
     const [inboxRes, sentRes] = await Promise.all([
-      gmail.users.messages.list({ userId: 'me', q: qInbox, maxResults: 50 }).catch(() => ({ data: { messages: [] } })),
-      gmail.users.messages.list({ userId: 'me', q: qSent, maxResults: 50 }).catch(() => ({ data: { messages: [] } })),
+      gmail.users.messages.list({ userId: 'me', q: qInbox, maxResults: 50 }).catch((e) => {
+        fetchError = e.message;
+        if (e.message?.includes('invalid_grant') || e.message?.includes('Token has been expired or revoked')) {
+          authRevoked = true;
+        }
+        console.error('[GmailFetch] inbox list error:', e.message);
+        return { data: { messages: [] } };
+      }),
+      gmail.users.messages.list({ userId: 'me', q: qSent, maxResults: 50 }).catch((e) => {
+        if (!fetchError) fetchError = e.message;
+        if (e.message?.includes('invalid_grant') || e.message?.includes('Token has been expired or revoked')) {
+          authRevoked = true;
+        }
+        console.error('[GmailFetch] sent list error:', e.message);
+        return { data: { messages: [] } };
+      }),
     ]);
+
+    if (authRevoked) {
+      await supabaseAdmin
+        .from('gmail_connections')
+        .update({
+          status: 'error',
+          last_error: 'Google authorization has expired or was revoked. Please reconnect in Settings.',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', connection.id);
+    }
 
     const inboxMsgMeta = inboxRes.data?.messages || [];
     const sentMsgMeta = sentRes.data?.messages || [];
@@ -184,11 +212,13 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       connected: true,
-      status: 'connected',
+      status: authRevoked ? 'error' : 'connected',
       accountEmail: connection.account_email,
       slot,
       emails: fetchedEmails,
       count: fetchedEmails.length,
+      error: fetchError || null,
+      authRevoked,
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
