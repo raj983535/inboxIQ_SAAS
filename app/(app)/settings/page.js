@@ -372,6 +372,15 @@ export default function SettingsPage() {
                           <Trash2 className="w-3.5 h-3.5 mr-1" /> Disconnect
                         </Button>
                       </>
+                    ) : conn1 && conn1.status === 'error' ? (
+                      <>
+                        <Badge variant="danger">Auth Expired</Badge>
+                        <a href="/api/google/connect?type=gmail&slot=1">
+                          <Button size="sm" variant="danger">
+                            Reconnect Primary Gmail
+                          </Button>
+                        </a>
+                      </>
                     ) : (
                       <a href="/api/google/connect?type=gmail&slot=1">
                         <Button size="sm" variant="primary">
@@ -416,6 +425,15 @@ export default function SettingsPage() {
                         >
                           <Trash2 className="w-3.5 h-3.5 mr-1" /> Disconnect
                         </Button>
+                      </>
+                    ) : conn2 && conn2.status === 'error' ? (
+                      <>
+                        <Badge variant="danger">Auth Expired</Badge>
+                        <a href="/api/google/connect?type=gmail&slot=2">
+                          <Button size="sm" variant="danger">
+                            Reconnect Slot 2
+                          </Button>
+                        </a>
                       </>
                     ) : (
                       <a href="/api/google/connect?type=gmail&slot=2">

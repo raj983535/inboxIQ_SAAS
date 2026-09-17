@@ -209,6 +209,35 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Gmail Connection Auth Expired / Error Alert */}
+        {gmailConnections.some((c) => c.status === 'error') && (
+          <div className="p-4 sm:p-5 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-950 dark:text-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                    Action Required: Gmail Authorization Expired
+                  </span>
+                  <Badge variant="danger">Reconnect Needed</Badge>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                  Google authorization for your Gmail account has expired. Your daily briefings cannot fetch new emails until you reconnect.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 w-full sm:w-auto">
+              <Link href="/settings" className="block">
+                <Button size="sm" variant="danger" className="w-full sm:w-auto text-xs">
+                  Reconnect in Settings <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Admin Quick Banner (Strictly visible only to verified Admin sahilrajppm2022@gmail.com) */}
         {isAdmin && (
           <div className="p-4 rounded-2xl bg-rose-50 dark:bg-neutral-900 border border-rose-200 dark:border-neutral-800 text-slate-900 dark:text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
