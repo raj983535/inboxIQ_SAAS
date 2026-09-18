@@ -169,10 +169,10 @@ export async function GET(req) {
         const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
 
         // Strict Preferred Time Guard:
-        // Trigger strictly when current time has reached preferred time and is within the 10-minute dispatch window (diffMinutes between 0 and 9).
+        // Trigger strictly when current time has reached preferred time and is within the 5-minute dispatch window (diffMinutes between 0 and 4).
         // With a 5-minute cron cadence (*/5 * * * *), every user worldwide is evaluated and dispatched within 0 to 5 minutes of their scheduled time.
         // Overridden only when ?force=true is explicitly passed by authorized admin/test trigger.
-        if (!isForce && (diffMinutes < 0 || diffMinutes >= 10)) {
+        if (!isForce && (diffMinutes < 0 || diffMinutes >= 5)) {
           continue;
         }
 
@@ -323,28 +323,37 @@ export async function GET(req) {
             // fallback to UTC
           }
 
-          // Idempotency check via in-memory map
-          const existingReport = reportMap.get(`${target.user_id}_${localDate}`);
-          if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
-            dispatchResults.push({
-              user_id: target.user_id,
-              user_email: target.user_email,
-              status: 'skipped',
-              reason: 'Daily report already delivered today',
-            });
-            return;
-          }
-          if (existingReport && (existingReport.status === 'queued' || existingReport.status === 'processing')) {
-            const lastActivity = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
-            const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
-            if (lastActivity > fifteenMinutesAgo) {
+          // Real-time Database Idempotency & In-Flight Protection Gate
+          const { data: currentReport } = await supabaseAdmin
+            .from('reports')
+            .select('id, status, email_delivery_status, created_at')
+            .eq('user_id', target.user_id)
+            .eq('report_date', localDate)
+            .eq('report_type', 'daily')
+            .maybeSingle();
+
+          if (currentReport) {
+            if (currentReport.status === 'delivered' || currentReport.email_delivery_status === 'delivered') {
               dispatchResults.push({
                 user_id: target.user_id,
                 user_email: target.user_email,
                 status: 'skipped',
-                reason: 'Execution actively in-flight within last 15 minutes',
+                reason: 'Daily report already delivered today',
               });
               return;
+            }
+            if (currentReport.status === 'queued' || currentReport.status === 'processing') {
+              const lastActivity = new Date(currentReport.created_at || 0).getTime();
+              const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+              if (lastActivity > fifteenMinutesAgo) {
+                dispatchResults.push({
+                  user_id: target.user_id,
+                  user_email: target.user_email,
+                  status: 'skipped',
+                  reason: 'Execution actively in-flight within last 15 minutes',
+                });
+                return;
+              }
             }
           }
 

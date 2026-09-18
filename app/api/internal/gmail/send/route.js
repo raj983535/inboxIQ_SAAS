@@ -23,7 +23,7 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Malformed JSON body.', 400);
     }
 
-    const { user_id, execution_id, subject, html_content } = body;
+    const { user_id, execution_id, subject, html_content, report_date } = body;
 
     if (!user_id || typeof user_id !== 'string') {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing or invalid user_id.', 400);
@@ -65,6 +65,41 @@ export async function POST(req) {
 
     if (!isSubActive) {
       throw new AppError(ErrorCategories.AUTH_ERROR, 'User subscription is inactive or expired.', 403);
+    }
+
+    // 2.5 Hard Idempotency Gate: Determine target date and check if report already delivered today
+    let targetDate = report_date;
+    if (!targetDate) {
+      const { data: userSettings } = await supabaseAdmin
+        .from('user_settings')
+        .select('timezone')
+        .eq('user_id', user_id)
+        .maybeSingle();
+      try {
+        const dFmt = new Intl.DateTimeFormat('en-CA', { timeZone: userSettings?.timezone || 'Asia/Kolkata' });
+        targetDate = dFmt.format(new Date());
+      } catch (e) {
+        targetDate = new Date().toISOString().split('T')[0];
+      }
+    }
+
+    const { data: existingReport } = await supabaseAdmin
+      .from('reports')
+      .select('id, status, email_delivery_status')
+      .eq('user_id', user_id)
+      .eq('report_date', targetDate)
+      .eq('report_type', 'daily')
+      .maybeSingle();
+
+    if (existingReport && (existingReport.email_delivery_status === 'delivered' || existingReport.status === 'delivered')) {
+      return NextResponse.json({
+        success: true,
+        delivered: false,
+        skipped: true,
+        reason: `Daily report already delivered to user ${user_id} on ${targetDate}. Duplicate email delivery suppressed.`,
+        recipient: recipientEmail,
+        report_date: targetDate,
+      });
     }
 
     // 3. Try to deliver via primary connected Gmail account (Slot 1)
@@ -141,12 +176,39 @@ export async function POST(req) {
       );
     }
 
+    // 5. Authoritatively lock report status as delivered in Supabase
+    try {
+      await supabaseAdmin
+        .from('reports')
+        .upsert({
+          user_id,
+          report_date: targetDate,
+          report_type: 'daily',
+          status: 'delivered',
+          email_delivery_status: 'delivered',
+          generated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,report_date,report_type' });
+
+      if (execution_id) {
+        await supabaseAdmin
+          .from('workflow_executions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('execution_id', execution_id);
+      }
+    } catch (dbLockErr) {
+      console.error('[GmailSend] Failed to update delivery lock in database:', dbLockErr.message);
+    }
+
     return NextResponse.json({
       success: true,
       delivered: true,
       recipient: recipientEmail,
       delivery_method: deliveredMethod,
       message_id: messageId,
+      report_date: targetDate,
     });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
