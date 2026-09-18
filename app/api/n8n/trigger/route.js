@@ -75,9 +75,36 @@ export async function POST(req) {
       .eq('status', 'connected')
       .maybeSingle();
 
-    // 5. Create Execution Record in Supabase
+    // 5. Calculate User's Local Date
+    let targetDate = today;
+    if (settings?.timezone) {
+      try {
+        const dFmt = new Intl.DateTimeFormat('en-CA', { timeZone: settings.timezone });
+        targetDate = dFmt.format(new Date());
+      } catch (e) {}
+    }
+
+    // 5.5 Check if report already delivered today
+    const { data: existingReport } = await supabaseAdmin
+      .from('reports')
+      .select('id, status, email_delivery_status')
+      .eq('user_id', user.id)
+      .eq('report_date', targetDate)
+      .eq('report_type', 'daily')
+      .maybeSingle();
+
+    if (existingReport && (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered')) {
+      return NextResponse.json({
+        success: true,
+        message: `Daily briefing has already been delivered for today (${targetDate}). Duplicate run skipped.`,
+        delivered: true,
+        skipped: true,
+        report_date: targetDate,
+      });
+    }
+
+    // 6. Create Execution Record in Supabase
     const executionId = generateExecutionId();
-    const today = new Date().toISOString().split('T')[0];
 
     await supabaseAdmin.from('workflow_executions').insert({
       user_id: user.id,
@@ -87,11 +114,11 @@ export async function POST(req) {
       started_at: new Date().toISOString(),
     });
 
-    // 6. Create Report Record Intent (Idempotent)
+    // 7. Create Report Record Intent (Idempotent)
     await supabaseAdmin.from('reports').upsert(
       {
         user_id: user.id,
-        report_date: today,
+        report_date: targetDate,
         report_type: 'daily',
         status: 'queued',
         email_delivery_status: 'pending',

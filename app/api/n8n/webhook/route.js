@@ -20,11 +20,14 @@ export async function POST(req) {
     // Tier 1: Direct Internal Secret / API Key
     // Tier 2: HMAC-SHA256 Cryptographic Signature
     // Tier 3: Authoritative Database Execution Match (prevents legitimate n8n callbacks from failing due to header skew)
+    const secretHeader = req.headers.get('x-inboxiq-secret') ||
+      req.headers.get('x-internal-key') ||
+      (req.headers.get('authorization')?.startsWith('Bearer ') ? req.headers.get('authorization').slice(7) : null);
     const timestamp = req.headers.get('x-inboxiq-timestamp');
     const signature = req.headers.get('x-inboxiq-signature');
     let isValid = false;
 
-    if (timestamp) {
+    if (secretHeader || timestamp) {
       try {
         verifyInternalAuth(req, rawBody);
         isValid = true;
