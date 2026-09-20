@@ -169,10 +169,10 @@ export async function GET(req) {
         const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
 
         // Strict Preferred Time Guard:
-        // Trigger strictly when current time has reached preferred time and is within the 5-minute dispatch window (diffMinutes between 0 and 4).
-        // With a 5-minute cron cadence (*/5 * * * *), every user worldwide is evaluated and dispatched within 0 to 5 minutes of their scheduled time.
+        // Trigger strictly when current time has reached preferred time and is within the 15-minute dispatch window (diffMinutes between 0 and 14).
+        // With a 30-minute cron cadence (0,30 * * * *), every user worldwide is evaluated at :00 or :30 and dispatched reliably.
         // Overridden only when ?force=true is explicitly passed by authorized admin/test trigger.
-        if (!isForce && (diffMinutes < 0 || diffMinutes >= 5)) {
+        if (!isForce && (diffMinutes < 0 || diffMinutes >= 15)) {
           continue;
         }
 
