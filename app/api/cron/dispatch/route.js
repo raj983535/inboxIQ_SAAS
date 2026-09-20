@@ -323,38 +323,58 @@ export async function GET(req) {
             // fallback to UTC
           }
 
-          // Real-time Database Idempotency & In-Flight Protection Gate
-          const { data: currentReport } = await supabaseAdmin
-            .from('reports')
-            .select('id, status, email_delivery_status, created_at')
-            .eq('user_id', target.user_id)
-            .eq('report_date', localDate)
-            .eq('report_type', 'daily')
-            .maybeSingle();
+          const executionId = generateExecutionId();
 
-          if (currentReport) {
-            if (currentReport.status === 'delivered' || currentReport.email_delivery_status === 'delivered') {
-              dispatchResults.push({
-                user_id: target.user_id,
-                user_email: target.user_email,
-                status: 'skipped',
-                reason: 'Daily report already delivered today',
-              });
-              return;
-            }
-            if (currentReport.status === 'queued' || currentReport.status === 'processing') {
-              const lastActivity = new Date(currentReport.created_at || 0).getTime();
-              const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
-              if (lastActivity > fifteenMinutesAgo) {
+          // Atomic Database Dispatch Claim (PostgreSQL Mutex Lock)
+          // Guarantees only ONE cron trigger can ever claim and dispatch this user for today.
+          const { data: canDispatch, error: claimErr } = await supabaseAdmin.rpc('claim_daily_briefing_dispatch', {
+            p_user_id: target.user_id,
+            p_report_date: localDate,
+            p_execution_id: executionId,
+          });
+
+          if (claimErr) {
+            console.warn('[CronDispatch] claim_daily_briefing_dispatch RPC warning, checking directly:', claimErr.message);
+            const { data: currentReport } = await supabaseAdmin
+              .from('reports')
+              .select('id, status, email_delivery_status, created_at, updated_at')
+              .eq('user_id', target.user_id)
+              .eq('report_date', localDate)
+              .eq('report_type', 'daily')
+              .maybeSingle();
+
+            if (currentReport) {
+              if (currentReport.status === 'delivered' || currentReport.email_delivery_status === 'delivered') {
                 dispatchResults.push({
                   user_id: target.user_id,
                   user_email: target.user_email,
                   status: 'skipped',
-                  reason: 'Execution actively in-flight within last 15 minutes',
+                  reason: 'Daily report already delivered today',
                 });
                 return;
               }
+              if (currentReport.status === 'queued' || currentReport.status === 'processing' || currentReport.status === 'sending') {
+                const lastActivity = new Date(currentReport.updated_at || currentReport.created_at || 0).getTime();
+                const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+                if (lastActivity > fifteenMinutesAgo) {
+                  dispatchResults.push({
+                    user_id: target.user_id,
+                    user_email: target.user_email,
+                    status: 'skipped',
+                    reason: 'Execution actively in-flight within last 15 minutes',
+                  });
+                  return;
+                }
+              }
             }
+          } else if (canDispatch === false) {
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'skipped',
+              reason: 'Execution already in-flight or delivered for today',
+            });
+            return;
           }
 
           const userGmailConns = gmailMap.get(target.user_id) || [];
@@ -368,29 +388,14 @@ export async function GET(req) {
             return;
           }
 
-          const executionId = generateExecutionId();
-
-          // Prepare database state for execution
-          await Promise.all([
-            supabaseAdmin.from('reports').upsert(
-              {
-                user_id: target.user_id,
-                report_date: localDate,
-                report_type: 'daily',
-                status: 'queued',
-                email_delivery_status: 'pending',
-                drive_upload_status: 'skipped',
-              },
-              { onConflict: 'user_id,report_date,report_type' }
-            ),
-            supabaseAdmin.from('workflow_executions').insert({
-              execution_id: executionId,
-              user_id: target.user_id,
-              correlation_id: correlationId,
-              status: 'queued',
-              started_at: new Date().toISOString(),
-            }),
-          ]);
+          // Record in workflow_executions
+          await supabaseAdmin.from('workflow_executions').insert({
+            execution_id: executionId,
+            user_id: target.user_id,
+            correlation_id: correlationId,
+            status: 'queued',
+            started_at: new Date().toISOString(),
+          });
 
           try {
             const n8nRes = await triggerN8nWorkflow({

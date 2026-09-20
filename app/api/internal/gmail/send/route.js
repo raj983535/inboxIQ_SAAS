@@ -83,20 +83,40 @@ export async function POST(req) {
       }
     }
 
-    const { data: existingReport } = await supabaseAdmin
-      .from('reports')
-      .select('id, status, email_delivery_status')
-      .eq('user_id', user_id)
-      .eq('report_date', targetDate)
-      .eq('report_type', 'daily')
-      .maybeSingle();
+    // 2.5 Atomic Transmission Mutex Lock Gate (PostgreSQL Row-Level Lock)
+    // Physically blocks concurrent executions from sending duplicate emails even under microsecond race conditions.
+    const { data: lockAcquired, error: lockErr } = await supabaseAdmin.rpc('claim_email_delivery_lock', {
+      p_user_id: user_id,
+      p_report_date: targetDate,
+      p_execution_id: execution_id || null,
+    });
 
-    if (existingReport && (existingReport.email_delivery_status === 'delivered' || existingReport.status === 'delivered')) {
+    if (lockErr) {
+      console.warn('[GmailSend] Lock claim RPC warning, falling back to direct check:', lockErr.message);
+      const { data: fallbackReport } = await supabaseAdmin
+        .from('reports')
+        .select('id, status, email_delivery_status')
+        .eq('user_id', user_id)
+        .eq('report_date', targetDate)
+        .eq('report_type', 'daily')
+        .maybeSingle();
+
+      if (fallbackReport && (fallbackReport.email_delivery_status === 'delivered' || fallbackReport.status === 'delivered' || fallbackReport.email_delivery_status === 'sending')) {
+        return NextResponse.json({
+          success: true,
+          delivered: false,
+          skipped: true,
+          reason: `Daily report already delivered or in-flight for user ${user_id} on ${targetDate}. Duplicate email delivery suppressed.`,
+          recipient: recipientEmail,
+          report_date: targetDate,
+        });
+      }
+    } else if (lockAcquired === false) {
       return NextResponse.json({
         success: true,
         delivered: false,
         skipped: true,
-        reason: `Daily report already delivered to user ${user_id} on ${targetDate}. Duplicate email delivery suppressed.`,
+        reason: `Daily report delivery lock already claimed or delivered for user ${user_id} on ${targetDate}. Duplicate email delivery suppressed.`,
         recipient: recipientEmail,
         report_date: targetDate,
       });
@@ -187,6 +207,7 @@ export async function POST(req) {
           status: 'delivered',
           email_delivery_status: 'delivered',
           generated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,report_date,report_type' });
 
       if (execution_id) {
