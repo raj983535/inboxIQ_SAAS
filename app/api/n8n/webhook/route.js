@@ -130,7 +130,8 @@ export async function POST(req) {
           generated_at: new Date().toISOString(),
         })
         .eq('user_id', user_id)
-        .eq('report_date', report_date);
+        .eq('report_date', report_date)
+        .eq('report_type', 'daily');
     }
 
     // 4. Log failure if any in system_errors table and fire real-time alert

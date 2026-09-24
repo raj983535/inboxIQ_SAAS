@@ -203,6 +203,17 @@ export async function GET(req) {
           (sub.status === 'cancelled' && sub.current_period_end && new Date(sub.current_period_end) <= new Date());
 
         if (isExpiredTrial || isExpiredSub) {
+          const expiryDate = new Date(sub.trial_ends_at || sub.current_period_end || 0);
+          const daysSinceExpiry = Math.max(0, Math.floor((Date.now() - expiryDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+          // Professional SaaS Dunning Sequence:
+          // Remind users only on Day 0/1 (Day after expiry), Day 3, and Day 7 (Final Notice).
+          // Terminate reminders after Day 7 to protect domain deliverability and avoid spamming.
+          const isDunningDay = daysSinceExpiry === 0 || daysSinceExpiry === 1 || daysSinceExpiry === 3 || daysSinceExpiry === 7;
+          if (!isForce && !isDunningDay) {
+            continue; // Not a scheduled dunning cadence day, skip
+          }
+
           expiredUsersToRemind.push({
             user_id: user.id,
             user_email: user.email,
@@ -212,6 +223,7 @@ export async function GET(req) {
             report_time: reportTime,
             timezone: timezone,
             local_date: localDate,
+            daysSinceExpiry,
           });
           continue;
         }
@@ -230,10 +242,43 @@ export async function GET(req) {
       }
     }
 
-    // 2.5 Dispatch daily renewal reminder emails to expired users at their scheduled time
+    // 2.5 Dispatch scheduled renewal reminder emails to expired users with Atomic Mutex Lock
+    // (Prevents duplicate reminder emails if dual crons fire at the same minute)
     let remindersDispatched = 0;
     if (expiredUsersToRemind.length > 0) {
       for (const rem of expiredUsersToRemind) {
+        const reminderType = rem.isExpiredTrial ? 'renewal_reminder_trial' : 'renewal_reminder_subscription';
+        const executionId = generateExecutionId();
+
+        // Gate 1: Atomic Database Reminder Mutex Claim (PostgreSQL row-level lock)
+        // Physically blocks any concurrent cron trigger (e.g. pg_cron vs cron-job.org) from sending duplicates.
+        const { data: lockAcquired, error: lockErr } = await supabaseAdmin.rpc('claim_reminder_dispatch_lock', {
+          p_user_id: rem.user_id,
+          p_report_date: rem.local_date,
+          p_reminder_type: reminderType,
+          p_execution_id: executionId,
+        });
+
+        if (lockErr) {
+          console.warn(`[CronDispatch] Reminder lock RPC warning for ${rem.user_email}:`, lockErr.message);
+          // Fallback check
+          const { data: existingRem } = await supabaseAdmin
+            .from('reports')
+            .select('id, status, email_delivery_status')
+            .eq('user_id', rem.user_id)
+            .eq('report_date', rem.local_date)
+            .eq('report_type', reminderType)
+            .maybeSingle();
+
+          if (existingRem && (existingRem.status === 'delivered' || existingRem.email_delivery_status === 'delivered' || existingRem.email_delivery_status === 'sending')) {
+            console.log(`[CronDispatch] Reminder already sent or in-flight for ${rem.user_email} on ${rem.local_date}. Duplicate suppressed.`);
+            continue;
+          }
+        } else if (lockAcquired === false) {
+          console.log(`[CronDispatch] Reminder lock rejected (already claimed or delivered) for ${rem.user_email} on ${rem.local_date}. Duplicate suppressed.`);
+          continue;
+        }
+
         try {
           if (rem.isExpiredTrial) {
             await sendTrialExpiredRenewalReminderEmail({
@@ -254,22 +299,28 @@ export async function GET(req) {
             });
           }
 
-          // Record in reports table for daily idempotency and admin dashboard visibility
-          await supabaseAdmin.from('reports').upsert({
-            user_id: rem.user_id,
-            report_date: rem.local_date,
-            report_type: rem.isExpiredTrial ? 'renewal_reminder_trial' : 'renewal_reminder_subscription',
+          // Authoritatively mark as delivered in reports table
+          await supabaseAdmin.from('reports').update({
             status: 'delivered',
             email_delivery_status: 'delivered',
-            drive_upload_status: 'skipped',
             executive_summary: rem.isExpiredTrial
-              ? `Daily renewal reminder delivered at ${rem.report_time} (Trial Ended).`
-              : `Daily renewal reminder delivered at ${rem.report_time} (Subscription Ended).`,
-          }, { onConflict: 'user_id, report_date, report_type' });
+              ? `Renewal reminder delivered at ${rem.report_time} (Day ${rem.daysSinceExpiry} of trial conclusion).`
+              : `Renewal reminder delivered at ${rem.report_time} (Day ${rem.daysSinceExpiry} of subscription expiry).`,
+            updated_at: new Date().toISOString(),
+          }).eq('user_id', rem.user_id)
+            .eq('report_date', rem.local_date)
+            .eq('report_type', reminderType);
 
           remindersDispatched++;
         } catch (remErr) {
           console.error(`[CronDispatch] Failed to send renewal reminder to ${rem.user_email}:`, remErr.message);
+          await supabaseAdmin.from('reports').update({
+            status: 'failed',
+            email_delivery_status: 'failed',
+            updated_at: new Date().toISOString(),
+          }).eq('user_id', rem.user_id)
+            .eq('report_date', rem.local_date)
+            .eq('report_type', reminderType);
         }
       }
     }
