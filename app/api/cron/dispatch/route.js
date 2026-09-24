@@ -377,6 +377,18 @@ export async function GET(req) {
           const executionId = generateExecutionId();
 
           // Atomic Database Dispatch Claim (PostgreSQL Mutex Lock)
+          const userGmailConns = gmailMap.get(target.user_id) || [];
+          if (!userGmailConns || userGmailConns.length === 0) {
+            dispatchResults.push({
+              user_id: target.user_id,
+              user_email: target.user_email,
+              status: 'skipped',
+              reason: 'No connected Gmail account found for user',
+            });
+            return;
+          }
+
+          // Atomic Database Dispatch Claim (PostgreSQL Mutex Lock)
           // Guarantees only ONE cron trigger can ever claim and dispatch this user for today.
           const { data: canDispatch, error: claimErr } = await supabaseAdmin.rpc('claim_daily_briefing_dispatch', {
             p_user_id: target.user_id,
@@ -428,17 +440,6 @@ export async function GET(req) {
             return;
           }
 
-          const userGmailConns = gmailMap.get(target.user_id) || [];
-          if (!userGmailConns || userGmailConns.length === 0) {
-            dispatchResults.push({
-              user_id: target.user_id,
-              user_email: target.user_email,
-              status: 'skipped',
-              reason: 'No connected Gmail account found for user',
-            });
-            return;
-          }
-
           // Record in workflow_executions
           await supabaseAdmin.from('workflow_executions').insert({
             execution_id: executionId,
@@ -476,7 +477,7 @@ export async function GET(req) {
                 status: 'failed',
                 email_delivery_status: 'failed',
                 executive_summary: `Dispatch failed: ${dispatchErr.message}`,
-              }).eq('user_id', target.user_id).eq('report_date', localDate),
+              }).eq('user_id', target.user_id).eq('report_date', localDate).eq('report_type', 'daily'),
               supabaseAdmin.from('workflow_executions').update({
                 status: 'failed',
                 error_message: dispatchErr.message,

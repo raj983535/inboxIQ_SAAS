@@ -11,12 +11,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
   let correlationId = 'unknown';
+  let body = null;
+  let targetDate = null;
   try {
     const rawBody = await req.text();
     const auth = verifyInternalAuth(req, rawBody);
     correlationId = auth.correlationId;
 
-    let body;
     try {
       body = JSON.parse(rawBody);
     } catch (e) {
@@ -68,7 +69,7 @@ export async function POST(req) {
     }
 
     // 2.5 Hard Idempotency Gate: Determine target date and check if report already delivered today
-    let targetDate = report_date;
+    targetDate = report_date;
     if (!targetDate) {
       const { data: userSettings } = await supabaseAdmin
         .from('user_settings')
@@ -232,6 +233,22 @@ export async function POST(req) {
       report_date: targetDate,
     });
   } catch (error) {
+    if (body?.user_id && targetDate) {
+      try {
+        await supabaseAdmin
+          .from('reports')
+          .update({
+            status: 'failed',
+            email_delivery_status: 'failed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', body.user_id)
+          .eq('report_date', targetDate)
+          .eq('report_type', 'daily');
+      } catch (dbErr) {
+        // silent fallback
+      }
+    }
     const safeError = formatSafeErrorResponse(error, correlationId);
     return NextResponse.json(safeError, { status: safeError.status });
   }
