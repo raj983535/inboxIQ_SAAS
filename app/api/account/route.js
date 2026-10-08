@@ -186,10 +186,6 @@ export async function GET() {
           trial_ends_at: null,
         },
         recent_reports: recentReports || [],
-        db_debug: {
-          target_supabase_project: process.env.NEXT_PUBLIC_SUPABASE_URL || 'not-set',
-          has_service_role_key: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-        },
       },
       {
         headers: {
