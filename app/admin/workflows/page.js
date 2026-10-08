@@ -74,16 +74,17 @@ export default function AdminWorkflowsPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setTriggerNotice(`✓ Test workflow queued! Execution ID: ${data.execution_id}`);
+        setTriggerNotice(`✓ ${data.message || `Test workflow dispatched! Execution ID: ${data.execution_id}`}`);
         fetchWorkflows();
       } else {
-        setTriggerNotice(`Error: ${data.error?.message || 'Failed to queue test workflow'}`);
+        setTriggerNotice(`Error: ${data.error?.message || data.error || 'Failed to trigger test workflow'}`);
+        fetchWorkflows();
       }
     } catch (err) {
       setTriggerNotice(`Network error: ${err.message}`);
     } finally {
       setTriggering(false);
-      setTimeout(() => setTriggerNotice(null), 6000);
+      setTimeout(() => setTriggerNotice(null), 8000);
     }
   };
 
@@ -149,9 +150,14 @@ export default function AdminWorkflowsPage() {
                 <TableCell className="font-medium text-slate-900 dark:text-white">{w.users?.email || 'N/A'}</TableCell>
                 <TableCell>
                   <span className="font-mono text-xs">{w.execution_id}</span>
+                  {w.error_message && (
+                    <div className="text-[10px] text-rose-500 line-clamp-1 max-w-[220px]" title={w.error_message}>
+                      {w.error_message}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={w.status === 'completed' ? 'success' : w.status === 'failed' ? 'danger' : 'brand'}>
+                  <Badge variant={w.status === 'completed' ? 'success' : w.status === 'failed' ? 'danger' : w.status === 'processing' ? 'brand' : 'default'}>
                     {w.status}
                   </Badge>
                 </TableCell>

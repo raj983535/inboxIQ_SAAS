@@ -134,8 +134,13 @@ export default function AdminUserDetailPage() {
             </div>
             <div>
               <span className="text-slate-500 dark:text-neutral-400">Status:</span>{' '}
-              <Badge variant={subscription?.status === 'active' ? 'success' : 'warning'}>
-                {subscription?.status || 'inactive'}
+              <Badge variant={
+                subscription?.status === 'active' ? 'success' :
+                subscription?.status === 'trialing' ? 'warning' :
+                ['trial_ended', 'subscription_ended', 'cancelled', 'expired'].includes(subscription?.status) ? 'danger' :
+                'default'
+              }>
+                {subscription?.status === 'trial_ended' ? 'End Trial' : subscription?.status || 'inactive'}
               </Badge>
             </div>
             <div>

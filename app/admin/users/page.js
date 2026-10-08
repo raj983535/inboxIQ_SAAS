@@ -173,7 +173,7 @@ export default function AdminUsersPage() {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-slate-500 dark:text-neutral-400">
+              <TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-neutral-400">
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" />

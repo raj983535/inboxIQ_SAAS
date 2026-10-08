@@ -11,6 +11,23 @@ export async function GET() {
   try {
     await getAuthenticatedAdmin();
 
+    // 0. Auto-reconcile stale zombie executions (> 15 minutes old and still queued or processing)
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    try {
+      await supabaseAdmin
+        .from('workflow_executions')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error_category: 'timeout',
+          error_message: 'Execution timed out (No webhook response from n8n automation engine within 15 minutes)',
+        })
+        .in('status', ['queued', 'processing'])
+        .lt('started_at', fifteenMinutesAgo);
+    } catch (reconcileErr) {
+      console.warn('[AdminWorkflows] Stale execution reconciliation note:', reconcileErr.message);
+    }
+
     const { data: workflows, error } = await supabaseAdmin
       .from('workflow_executions')
       .select(`
@@ -102,9 +119,7 @@ export async function POST(req) {
 
     if (execErr) throw execErr;
 
-    // 3. Dispatch to n8n if credentials are configured
-    let n8nDispatched = false;
-    let n8nNote = 'Dispatched to n8n webhook';
+    // 3. Dispatch to n8n
     try {
       const { triggerN8nWorkflow } = await import('@/lib/n8n/client');
       await triggerN8nWorkflow({
@@ -120,19 +135,54 @@ export async function POST(req) {
         executionId: executionId,
         correlationId: correlationId,
       });
-      n8nDispatched = true;
-    } catch (err) {
-      n8nNote = err.message || 'n8n webhook dispatch skipped';
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Test workflow execution queued successfully',
-      execution_id: executionId,
-      user_email: targetUser.email,
-      n8n_dispatched: n8nDispatched,
-      n8n_note: n8nNote,
-    });
+      // Update execution status to 'processing'
+      await supabaseAdmin
+        .from('workflow_executions')
+        .update({ status: 'processing' })
+        .eq('execution_id', executionId);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Test workflow dispatched successfully and is processing in n8n engine.',
+        execution_id: executionId,
+        user_email: targetUser.email,
+        n8n_dispatched: true,
+      });
+    } catch (err) {
+      // Record failure immediately in DB so it never hangs as 'queued'
+      await Promise.all([
+        supabaseAdmin
+          .from('workflow_executions')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_category: 'n8n_dispatch_failure',
+            error_message: err.message || 'Failed to dispatch workflow to n8n engine.',
+          })
+          .eq('execution_id', executionId),
+        supabaseAdmin
+          .from('reports')
+          .update({
+            status: 'failed',
+            email_delivery_status: 'failed',
+          })
+          .eq('user_id', targetUser.id)
+          .eq('report_date', today)
+          .eq('report_type', 'daily'),
+      ]);
+
+      return NextResponse.json({
+        success: false,
+        error: {
+          category: 'N8N_DISPATCH_FAILURE',
+          message: `Failed to trigger n8n: ${err.message}`,
+        },
+        execution_id: executionId,
+        user_email: targetUser.email,
+        n8n_dispatched: false,
+      }, { status: 502 });
+    }
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
     return NextResponse.json(safeError, { status: safeError.status });

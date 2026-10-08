@@ -141,47 +141,51 @@ export default function AdminSubscriptionsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {sub.razorpay_subscription_id ? (
-                      <div>
-                        <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400">{sub.razorpay_subscription_id}</span>
-                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Subscription ID</div>
-                      </div>
-                    ) : sub.razorpay_order_id ? (
-                      <div>
-                        <span className="font-mono text-xs text-blue-600 dark:text-blue-400">{sub.razorpay_order_id}</span>
-                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Order ID</div>
-                      </div>
-                    ) : sub.razorpay_payment_id ? (
-                      <div>
-                        <span className="font-mono text-xs text-amber-600 dark:text-amber-400">{sub.razorpay_payment_id}</span>
-                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Payment ID</div>
-                      </div>
-                    ) : (isTrialEnded || sub.status === 'trial_ended') ? (
-                      <div>
-                        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">sub_{sub.id?.substring(0, 8)}</span>
-                        <div className="text-[10px] text-rose-600 dark:text-rose-500 font-medium">Free Trial Ended</div>
-                      </div>
-                    ) : (isSubEnded || sub.status === 'subscription_ended') ? (
-                      <div>
-                        <span className="font-mono text-xs text-rose-600 dark:text-rose-400">sub_{sub.id?.substring(0, 8)}</span>
-                        <div className="text-[10px] text-rose-600 dark:text-rose-500 font-medium">Subscription Ended</div>
-                      </div>
-                    ) : sub.status === 'trialing' ? (
-                      <div>
-                        <span className="font-mono text-xs text-amber-600 dark:text-amber-400">sub_{sub.id?.substring(0, 8)}</span>
-                        <div className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">Free Trial (Active)</div>
-                      </div>
-                    ) : sub.users?.email === 'sahilrajppm2022@gmail.com' ? (
-                      <div>
-                        <span className="font-mono text-xs text-purple-600 dark:text-purple-400">sub_{sub.id?.substring(0, 8)}</span>
-                        <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">System / Admin Tier</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="font-mono text-xs text-slate-600 dark:text-neutral-400">sub_{sub.id?.substring(0, 8)}</span>
-                        <div className="text-[10px] text-slate-500 dark:text-neutral-500">Complimentary / Manual</div>
-                      </div>
-                    )}
+                    {(() => {
+                      const displayId = sub.razorpay_subscription_id || sub.razorpay_order_id || sub.razorpay_payment_id || (sub.id ? `sub_${sub.id.substring(0, 8)}` : 'N/A');
+                      const isAdmin = sub.users?.email === 'sahilrajppm2022@gmail.com';
+
+                      let idColor = 'text-slate-600 dark:text-neutral-400';
+                      let subLabel = 'Complimentary / Manual';
+                      let labelColor = 'text-slate-500 dark:text-neutral-500';
+
+                      if (isAdmin) {
+                        idColor = 'text-purple-600 dark:text-purple-400';
+                        subLabel = 'System / Admin Tier';
+                        labelColor = 'text-purple-600 dark:text-purple-400 font-medium';
+                      } else if (isTrialEnded || sub.status === 'trial_ended') {
+                        idColor = 'text-rose-600 dark:text-rose-400';
+                        subLabel = 'Free Trial Ended';
+                        labelColor = 'text-rose-600 dark:text-rose-500 font-medium';
+                      } else if (isSubEnded || sub.status === 'subscription_ended') {
+                        idColor = 'text-rose-600 dark:text-rose-400';
+                        subLabel = 'Subscription Ended';
+                        labelColor = 'text-rose-600 dark:text-rose-500 font-medium';
+                      } else if (sub.status === 'cancelled') {
+                        idColor = 'text-rose-600 dark:text-rose-400';
+                        subLabel = 'Subscription Cancelled';
+                        labelColor = 'text-rose-600 dark:text-rose-500 font-medium';
+                      } else if (sub.status === 'trialing') {
+                        idColor = 'text-amber-600 dark:text-amber-400';
+                        subLabel = 'Free Trial (Active)';
+                        labelColor = 'text-amber-600 dark:text-amber-500 font-medium';
+                      } else if (rawStatus === 'active') {
+                        idColor = 'text-emerald-600 dark:text-emerald-400';
+                        subLabel = sub.razorpay_subscription_id ? 'Active Subscription' : 'Active Plan';
+                        labelColor = 'text-emerald-600 dark:text-emerald-400 font-medium';
+                      } else if (rawStatus === 'created') {
+                        idColor = 'text-blue-600 dark:text-blue-400';
+                        subLabel = 'Checkout Pending';
+                        labelColor = 'text-blue-600 dark:text-blue-400 font-medium';
+                      }
+
+                      return (
+                        <div>
+                          <span className={`font-mono text-xs ${idColor}`}>{displayId}</span>
+                          <div className={`text-[10px] ${labelColor}`}>{subLabel}</div>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                 <TableCell>
                   <span className="text-xs text-slate-600 dark:text-neutral-400">
