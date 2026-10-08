@@ -123,7 +123,7 @@ export async function POST(req) {
     let authRevoked = false;
 
     const [inboxRes, sentRes] = await Promise.all([
-      gmail.users.messages.list({ userId: 'me', q: qInbox, maxResults: 50 }).catch((e) => {
+      gmail.users.messages.list({ userId: 'me', q: qInbox, maxResults: 100 }).catch((e) => {
         fetchError = e.message;
         if (e.message?.includes('invalid_grant') || e.message?.includes('Token has been expired or revoked')) {
           authRevoked = true;
@@ -131,7 +131,7 @@ export async function POST(req) {
         console.error('[GmailFetch] inbox list error:', e.message);
         return { data: { messages: [] } };
       }),
-      gmail.users.messages.list({ userId: 'me', q: qSent, maxResults: 50 }).catch((e) => {
+      gmail.users.messages.list({ userId: 'me', q: qSent, maxResults: 100 }).catch((e) => {
         if (!fetchError) fetchError = e.message;
         if (e.message?.includes('invalid_grant') || e.message?.includes('Token has been expired or revoked')) {
           authRevoked = true;

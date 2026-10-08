@@ -96,7 +96,7 @@ export default function OnboardingPage() {
     const savedStepStr = typeof window !== 'undefined' ? localStorage.getItem('inboxiq_onboarding_active_step') : null;
     const savedStep = savedStepStr ? parseInt(savedStepStr, 10) : null;
 
-    if (savedStep === 3 && (hasGmail || isProfileDone)) {
+    if (savedStep === 3 && hasGmail && isProfileDone) {
       setStepState(3);
     } else if (savedStep === 2 && isProfileDone) {
       setStepState(2);
@@ -562,8 +562,46 @@ export default function OnboardingPage() {
                     Go to Your Dashboard <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
+              ) : subscription?.trial_claimed ? (
+                /* TRIAL ALREADY CLAIMED: SUBSCRIBE DIRECTLY */
+                <div className="space-y-6">
+                  <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">
+                      <Sparkles className="w-3 h-3" /> Monthly Subscription
+                    </div>
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{planInfo.name}</h3>
+                    <p className="text-xs text-neutral-400">
+                      Tailored for: {planInfo.target}
+                    </p>
+                    <div className="text-2xl font-bold text-neutral-900 dark:text-white pt-2">
+                      {planInfo.activePricing.formatted}<span className="text-xs font-normal text-neutral-400">/month</span>
+                    </div>
+                    <ul className="text-xs text-neutral-600 dark:text-neutral-300 space-y-1.5 text-left pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                      {planInfo.features.slice(0, 3).map((feat, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <Button
+                    onClick={handleSubscribe}
+                    loading={checkoutLoading}
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-base py-3.5 shadow-lg"
+                  >
+                    Activate Subscription — {planInfo.activePricing.formatted}/mo <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+
+                  <p className="text-[11px] text-neutral-400">
+                    Secure checkout via Razorpay • Cancel anytime from Billing settings.
+                  </p>
+                </div>
               ) : (
-                /* FREE TRIAL CARD */
+                /* FREE TRIAL CARD (WITH DIRECT SUBSCRIBE OPTION) */
                 <div className="space-y-6">
                   <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[11px] font-bold">
@@ -593,8 +631,19 @@ export default function OnboardingPage() {
                     Start Free Trial — 3 Days of AI Intelligence <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
 
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSubscribe}
+                      disabled={checkoutLoading}
+                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 underline font-medium"
+                    >
+                      Or subscribe directly ({planInfo.activePricing.formatted}/mo)
+                    </button>
+                  </div>
+
                   <p className="text-[11px] text-neutral-400">
-                    No credit card required. After trial: {planInfo.activePricing.formatted}/month • Cancel anytime.
+                    No credit card required for trial. After trial: {planInfo.activePricing.formatted}/month • Cancel anytime.
                   </p>
                 </div>
               )}

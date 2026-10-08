@@ -59,8 +59,7 @@ export async function GET(req) {
           .update({ status: 'subscription_ended', updated_at: nowIso })
           .in('status', ['active', 'cancelled', 'past_due', 'expired'])
           .not('current_period_end', 'is', null)
-          .lte('current_period_end', nowIso)
-          .eq('trial_claimed', false),
+          .lte('current_period_end', nowIso),
       ]);
     } catch (healErr) {
       console.warn('[CronDispatch] Auto-heal subscription transition warning:', healErr.message);
@@ -106,7 +105,7 @@ export async function GET(req) {
           .in('user_id', allSubUserIds),
         supabaseAdmin
           .from('reports')
-          .select('id, user_id, report_date, report_type, status, email_delivery_status, created_at')
+          .select('id, user_id, report_date, report_type, status, email_delivery_status, created_at, updated_at')
           .in('user_id', allSubUserIds)
           .gte('report_date', yesterdayISO),
       ]);
@@ -168,11 +167,12 @@ export async function GET(req) {
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
         const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
 
-        // Strict Preferred Time Guard:
-        // Trigger strictly when current time has reached preferred time and is within the 15-minute dispatch window (diffMinutes between 0 and 14).
-        // With a 30-minute cron cadence (0,30 * * * *), every user worldwide is evaluated at :00 or :30 and dispatched reliably.
-        // Overridden only when ?force=true is explicitly passed by authorized admin/test trigger.
-        if (!isForce && (diffMinutes < 0 || diffMinutes >= 15)) {
+        // Resilient Dispatch Window:
+        // Trigger when current time has reached preferred time within a 45-minute window (diffMinutes between 0 and 44).
+        // With a 30-minute cron cadence (0,30 * * * *), every user worldwide is evaluated reliably even under Vercel execution jitter.
+        // Daily dispatches are strictly guaranteed idempotent by database row-level locking (claim_daily_briefing_dispatch).
+        // Overridden when ?force=true is explicitly passed by authorized admin/test trigger.
+        if (!isForce && (diffMinutes < 0 || diffMinutes >= 45)) {
           continue;
         }
 
@@ -183,7 +183,7 @@ export async function GET(req) {
           if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
             continue; // Already delivered today, skip
           }
-          if (existingReport.status === 'queued' || existingReport.status === 'processing') {
+          if (existingReport.status === 'queued' || existingReport.status === 'processing' || existingReport.status === 'sending') {
             // Check if recently queued/processed to prevent duplicate concurrent runs
             const lastActivity = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
             const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
@@ -191,6 +191,31 @@ export async function GET(req) {
               continue; // Actively in-flight within last 15 minutes, skip
             }
             // If older than 15 minutes, it is a stale zombie lock from a crashed run. Allow catchup retry!
+          }
+          if (existingReport.status === 'failed') {
+            // Automatic Retry for Failed Reports:
+            // Allow re-dispatch if the failure was more than 10 minutes ago (gives n8n time to recover from transient issues).
+            // Cap retries at 3 total attempts to prevent infinite retry loops on permanent failures.
+            const failedAt = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
+            const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+            if (failedAt > tenMinutesAgo) {
+              continue; // Failed recently, wait before retrying
+            }
+            // Check retry count from workflow_executions to cap at 3 attempts
+            const { count: retryCount } = await supabaseAdmin
+              .from('workflow_executions')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id)
+              .gte('started_at', `${localDate}T00:00:00Z`);
+            if ((retryCount || 0) >= 3) {
+              continue; // Max 3 attempts per day, stop retrying to avoid burning n8n executions
+            }
+            // Reset report status to queued for retry
+            await supabaseAdmin.from('reports').update({
+              status: 'queued',
+              email_delivery_status: 'pending',
+              updated_at: new Date().toISOString(),
+            }).eq('user_id', user.id).eq('report_date', localDate).eq('report_type', 'daily');
           }
         }
 
@@ -357,7 +382,15 @@ export async function GET(req) {
       gmailMap.set(g.user_id, list);
     }
 
-    // 5. Concurrent Chunk Dispatching (Handles 100+ users safely without Vercel timeouts)
+    // 5. Pre-warm n8n Cloud engine (wakes up hibernating cloud containers before batch webhooks hit)
+    const n8nBase = (process.env.N8N_BASE_URL || 'https://axiaracompany.app.n8n.cloud').trim().replace(/\/+$/, '');
+    try {
+      fetch(n8nBase, { signal: AbortSignal.timeout(4000) }).catch(() => {});
+    } catch {
+      // ignore
+    }
+
+    // 6. Concurrent Chunk Dispatching (Handles 100+ users safely without Vercel timeouts)
     const dispatchResults = [];
     const CHUNK_SIZE = 10; // 10 parallel dispatches per chunk
 

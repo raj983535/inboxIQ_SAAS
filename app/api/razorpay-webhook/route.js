@@ -44,17 +44,21 @@ export async function POST(req) {
     }
 
     // 3. Process events idempotently
-    let targetStatus = 'active';
+    let targetStatus = null;
     const isCharged = event === 'subscription.activated' || event === 'subscription.charged' || event === 'payment.captured';
 
     if (isCharged) {
       targetStatus = 'active';
-    } else if (event === 'subscription.pending' || event === 'subscription.halted') {
+    } else if (event === 'payment.failed' || event === 'subscription.pending' || event === 'subscription.halted') {
       targetStatus = 'past_due';
     } else if (event === 'subscription.cancelled') {
       targetStatus = 'cancelled';
     } else if (event === 'subscription.completed' || event === 'subscription.expired') {
       targetStatus = 'expired';
+    }
+
+    if (!targetStatus) {
+      return NextResponse.json({ success: true, message: `Event ${event} received but requires no status transition.` });
     }
 
     const nextEnd = entity.current_end
@@ -74,10 +78,26 @@ export async function POST(req) {
 
     // 4. Update Supabase
     if (userId) {
-      await supabaseAdmin
+      const { data: updated } = await supabaseAdmin
         .from('subscriptions')
         .update(updatePayload)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select('id');
+
+      // If user row does not exist yet, create it
+      if (!updated || updated.length === 0) {
+        await supabaseAdmin.from('subscriptions').insert({
+          ...updatePayload,
+          user_id: userId,
+          plan_name: entity.notes?.planName || 'InboxIQ Pro',
+        });
+      }
+
+      if (isCharged) {
+        await supabaseAdmin
+          .from('user_settings')
+          .upsert({ user_id: userId, onboarding_completed: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      }
     } else if (subscriptionId) {
       await supabaseAdmin
         .from('subscriptions')

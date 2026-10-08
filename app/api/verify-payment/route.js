@@ -66,7 +66,7 @@ export async function POST(req) {
       currency: requestedCurrency,
       razorpay_order_id: razorpay_order_id || null,
       razorpay_payment_id: razorpay_payment_id,
-      razorpay_subscription_id: razorpay_subscription_id || razorpay_order_id || null,
+      razorpay_subscription_id: razorpay_subscription_id || null,
       status: 'active',
       trial_claimed: true,
       current_period_start: nowIso,
@@ -101,6 +101,20 @@ export async function POST(req) {
         },
         { onConflict: 'user_id' }
       );
+
+    // Send confirmation email asynchronously (non-blocking)
+    try {
+      await sendSubscriptionActivatedEmail({
+        email: user.email,
+        name: user.name || '',
+        planName: planInfo.name,
+        amount: planInfo.activePricing.amount,
+        currency: requestedCurrency,
+        nextRenewalDate: periodEnd,
+      });
+    } catch (emailErr) {
+      console.warn('[VerifyPayment] Activation email notice:', emailErr.message);
+    }
 
     return NextResponse.json({
       success: true,

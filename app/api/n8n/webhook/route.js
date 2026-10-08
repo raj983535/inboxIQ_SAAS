@@ -38,14 +38,19 @@ export async function POST(req) {
       isValid = verifyN8nWebhookSignature(rawBody, signature);
     }
 
-    if (!isValid && payload?.execution_id) {
+    if (!isValid && payload?.execution_id && payload?.user_id) {
+      // Strict fallback: only permitted for active in-flight executions matching user_id and initiated within last 30 minutes
+      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: validExec } = await supabaseAdmin
         .from('workflow_executions')
         .select('id, user_id, status')
         .eq('execution_id', payload.execution_id)
+        .eq('user_id', payload.user_id)
+        .in('status', ['queued', 'processing'])
+        .gte('started_at', thirtyMinsAgo)
         .maybeSingle();
 
-      if (validExec && (!payload.user_id || validExec.user_id === payload.user_id)) {
+      if (validExec) {
         isValid = true;
       }
     }
