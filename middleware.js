@@ -40,7 +40,14 @@ export default function middleware(req, evt) {
     })(req, evt);
   }
 
-  // Graceful passthrough
+  // Fail-Closed: If protected route accessed in production and Clerk is not live, block access
+  if (isProtectedRoute(req)) {
+    if (process.env.NODE_ENV === 'development' && process.env.ENABLE_LOCAL_MOCK_AUTH === 'true') {
+      return NextResponse.next();
+    }
+    return new NextResponse('Authentication service is not properly configured.', { status: 503 });
+  }
+
   return NextResponse.next();
 }
 

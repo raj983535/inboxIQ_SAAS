@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { triggerN8nWorkflow } from '@/lib/n8n/client';
@@ -22,27 +23,41 @@ export async function GET(req) {
   const isForce = searchParams.get('force') === 'true';
 
   try {
-    // 1. Security Check: Allow Vercel Cron, CRON_SECRET, or internal key
+    // 1. Security Check: Require CRON_SECRET Bearer or authorized internal secret
+    // Note: Do NOT trust raw x-vercel-cron header alone because arbitrary internet callers can spoof it.
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
     const internalKey = req.headers.get('x-inboxiq-secret') || req.headers.get('x-internal-key');
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
     const internalSecret = process.env.INTERNAL_API_SECRET;
-    const isVercelCron = req.headers.get('x-vercel-cron') === '1';
 
     const KNOWN_INTERNAL_SECRETS = [
+      cronSecret,
       webhookSecret,
       internalSecret,
-      'inboxiq_production_orchestration_secret_key_2026',
     ].filter(Boolean);
 
-    const isCronAuthorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
-    const isInternalAuthorized = Boolean(internalKey && KNOWN_INTERNAL_SECRETS.includes(internalKey));
+    let isAuthorized = false;
 
-    if (!isVercelCron && !isCronAuthorized && !isInternalAuthorized) {
-      if (process.env.NODE_ENV === 'production' || cronSecret || webhookSecret) {
-        throw new AppError(ErrorCategories.AUTH_ERROR, 'Unauthorized cron invocation.', 401);
+    // Check Bearer token against CRON_SECRET or known internal secrets
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const testSecret = bearerToken || internalKey;
+
+    if (testSecret && KNOWN_INTERNAL_SECRETS.length > 0) {
+      for (const secret of KNOWN_INTERNAL_SECRETS) {
+        if (testSecret.length === secret.length) {
+          try {
+            if (crypto.timingSafeEqual(Buffer.from(testSecret, 'utf8'), Buffer.from(secret, 'utf8'))) {
+              isAuthorized = true;
+              break;
+            }
+          } catch {}
+        }
       }
+    }
+
+    if (!isAuthorized) {
+      throw new AppError(ErrorCategories.AUTH_ERROR, 'Unauthorized cron invocation.', 401);
     }
 
     // 1.5 Auto-heal: Transition expired trials and subscriptions in database
@@ -543,7 +558,9 @@ export async function GET(req) {
       dispatched: dispatchResults.filter((r) => r.status === 'dispatched').length,
       skipped: dispatchResults.filter((r) => r.status === 'skipped').length,
       failed: dispatchResults.filter((r) => r.status === 'failed').length,
-      results: dispatchResults,
+      dispatched_executions: dispatchResults
+        .filter((r) => r.status === 'dispatched')
+        .map((r) => r.execution_id),
       duration_ms: Date.now() - startTime,
       timestamp: new Date().toISOString(),
     });

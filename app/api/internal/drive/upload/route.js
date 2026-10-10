@@ -19,13 +19,7 @@ export async function POST(req) {
       message: 'Google Drive archival is disabled. Reports are delivered directly to Gmail.',
     });
   } catch (error) {
-    // Return safe 200 response to prevent breaking any legacy workflow node
-    console.warn(`[DriveUpload] Google Drive upload stub bypassed for correlation ${correlationId}:`, error.message);
-    return NextResponse.json({
-      success: true,
-      uploaded: false,
-      status: 'skipped',
-      message: error.message || 'Google Drive archival skipped.',
-    });
+    const safeError = formatSafeErrorResponse(error, correlationId);
+    return NextResponse.json(safeError, { status: safeError.status || 401 });
   }
 }
