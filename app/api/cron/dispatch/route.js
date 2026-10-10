@@ -383,7 +383,10 @@ export async function GET(req) {
     }
 
     // 5. Pre-warm n8n Cloud engine (wakes up hibernating cloud containers before batch webhooks hit)
-    const rawN8nBase = (process.env.N8N_BASE_URL || 'https://axiaracompany.app.n8n.cloud').trim().replace(/\/+$/, '');
+    let rawN8nBase = (process.env.N8N_BASE_URL || 'https://axiaracompany.app.n8n.cloud').trim().replace(/\/+$/, '');
+    if (rawN8nBase.includes('sahilcompany.app.n8n.cloud')) {
+      rawN8nBase = 'https://axiaracompany.app.n8n.cloud';
+    }
     let n8nBase = rawN8nBase;
     try {
       n8nBase = new URL(rawN8nBase.startsWith('http') ? rawN8nBase : `https://${rawN8nBase}`).origin;
