@@ -75,8 +75,8 @@ export async function GET() {
         .then();
     }
 
-    // AUTO-HEAL: If cancelled subscription period has ended, transition to 'subscription_ended'
-    if (activeSub && activeSub.status === 'cancelled' && activeSub.current_period_end && new Date(activeSub.current_period_end) <= new Date()) {
+    // AUTO-HEAL: If active or cancelled subscription period has ended, transition to 'subscription_ended'
+    if (activeSub && (activeSub.status === 'active' || activeSub.status === 'cancelled') && activeSub.current_period_end && new Date(activeSub.current_period_end) <= new Date()) {
       activeSub.status = 'subscription_ended';
       supabaseAdmin
         .from('subscriptions')
