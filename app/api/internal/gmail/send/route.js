@@ -199,6 +199,30 @@ export async function POST(req) {
 
     // 5. Authoritatively lock report status as delivered in Supabase
     try {
+      let extractedSummary = body.executive_summary || null;
+      if (!extractedSummary && typeof html_content === 'string') {
+        const summaryMatch = html_content.match(/Executive Summary<\/div>\s*<div class="summary">([\s\S]*?)<\/div>/i);
+        if (summaryMatch && summaryMatch[1]) {
+          extractedSummary = summaryMatch[1]
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .trim();
+        }
+      }
+
+      let extractedTotalEmails = typeof body.emails_processed === 'number' ? body.emails_processed : null;
+      if (extractedTotalEmails === null && typeof html_content === 'string') {
+        const countMatch = html_content.match(/<div class="stat-number">(\d+)<\/div>\s*<div class="stat-label">Total Emails<\/div>/i);
+        if (countMatch && countMatch[1]) {
+          extractedTotalEmails = parseInt(countMatch[1], 10);
+        }
+      }
+
+      const nowIso = new Date().toISOString();
       await supabaseAdmin
         .from('reports')
         .upsert({
@@ -207,8 +231,15 @@ export async function POST(req) {
           report_type: 'daily',
           status: 'delivered',
           email_delivery_status: 'delivered',
-          generated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          drive_upload_status: 'skipped',
+          ...(extractedSummary ? { executive_summary: extractedSummary } : {}),
+          key_metrics: {
+            message_id: messageId,
+            delivery_method: deliveredMethod,
+            ...(extractedTotalEmails !== null ? { total_emails: extractedTotalEmails } : {}),
+          },
+          generated_at: nowIso,
+          updated_at: nowIso,
         }, { onConflict: 'user_id,report_date,report_type' });
 
       if (execution_id) {
@@ -216,7 +247,8 @@ export async function POST(req) {
           .from('workflow_executions')
           .update({
             status: 'completed',
-            completed_at: new Date().toISOString(),
+            ...(extractedTotalEmails !== null ? { emails_processed: extractedTotalEmails } : {}),
+            completed_at: nowIso,
           })
           .eq('execution_id', execution_id);
       }
