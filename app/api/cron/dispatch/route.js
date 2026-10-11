@@ -182,12 +182,12 @@ export async function GET(req) {
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
         const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
 
-        // Resilient Dispatch Window:
-        // Trigger when current time has reached preferred time within a 45-minute window (diffMinutes between 0 and 44).
-        // With a 30-minute cron cadence (0,30 * * * *), every user worldwide is evaluated reliably even under Vercel execution jitter.
-        // Daily dispatches are strictly guaranteed idempotent by database row-level locking (claim_daily_briefing_dispatch).
+        // Resilient Dispatch & Same-Day Catch-Up Window:
+        // Trigger when current time has reached preferred time within a 6-hour same-day window (diffMinutes between 0 and 359).
+        // With a 30-minute cron cadence (0,30 * * * *), if a user's report is already delivered today, the idempotency gate below
+        // skips them immediately. If a transient blip occurred at their exact minute, subsequent cron ticks automatically catch up!
         // Overridden when ?force=true is explicitly passed by authorized admin/test trigger.
-        if (!isForce && (diffMinutes < 0 || diffMinutes >= 45)) {
+        if (!isForce && (diffMinutes < 0 || diffMinutes >= 360)) {
           continue;
         }
 
