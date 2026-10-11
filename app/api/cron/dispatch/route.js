@@ -194,6 +194,7 @@ export async function GET(req) {
         // Idempotency & In-Flight Protection:
         // Skip if report or reminder already delivered today OR actively processing (queued/processing within last 15 mins)
         const existingReport = reportMap.get(`${user.id}_${localDate}`);
+        let isRetryRun = false;
         if (existingReport) {
           if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
             continue; // Already delivered today, skip
@@ -201,30 +202,30 @@ export async function GET(req) {
           if (existingReport.status === 'queued' || existingReport.status === 'processing' || existingReport.status === 'sending') {
             // Check if recently queued/processed to prevent duplicate concurrent runs
             const lastActivity = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
-            const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
-            if (lastActivity > fifteenMinutesAgo) {
-              continue; // Actively in-flight within last 15 minutes, skip
+            const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
+            if (lastActivity > threeMinutesAgo) {
+              continue; // Actively in-flight within last 3 minutes, skip
             }
-            // If older than 15 minutes, it is a stale zombie lock from a crashed run. Allow catchup retry!
+            // If older than 3 minutes, n8n stalled or dropped the execution. Force native self-healing retry!
+            isRetryRun = true;
           }
           if (existingReport.status === 'failed') {
-            // Automatic Retry for Failed Reports:
-            // Allow re-dispatch if the failure was more than 10 minutes ago (gives n8n time to recover from transient issues).
-            // Cap retries at 3 total attempts to prevent infinite retry loops on permanent failures.
+            // Automatic Self-Healing Retry for Failed Reports:
             const failedAt = new Date(existingReport.updated_at || existingReport.created_at || 0).getTime();
-            const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-            if (failedAt > tenMinutesAgo) {
-              continue; // Failed recently, wait before retrying
+            const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+            if (failedAt > twoMinutesAgo) {
+              continue; // Failed very recently, wait 2 mins before retrying
             }
-            // Check retry count from workflow_executions to cap at 3 attempts
+            // Check retry count from workflow_executions to cap at 4 attempts
             const { count: retryCount } = await supabaseAdmin
               .from('workflow_executions')
               .select('id', { count: 'exact', head: true })
               .eq('user_id', user.id)
               .gte('started_at', `${localDate}T00:00:00Z`);
-            if ((retryCount || 0) >= 3) {
-              continue; // Max 3 attempts per day, stop retrying to avoid burning n8n executions
+            if ((retryCount || 0) >= 4) {
+              continue; // Max 4 attempts per day
             }
+            isRetryRun = true;
             // Reset report status to queued for retry
             await supabaseAdmin.from('reports').update({
               status: 'queued',
@@ -268,7 +269,10 @@ export async function GET(req) {
           continue;
         }
 
-        // Active subscriber or active trialing user -> Queue for n8n AI briefing
+        // Active subscriber or active trialing user -> Queue for AI briefing
+        // Force native engine on retries, trialing subscriptions, or cross-hour catch-up runs
+        const shouldForceNative = isRetryRun || sub.status !== 'active' || currentLocalHour !== scheduledHour;
+
         usersToProcess.push({
           user_id: user.id,
           user_email: user.email,
@@ -278,6 +282,7 @@ export async function GET(req) {
           report_time: reportTime,
           timezone: timezone,
           local_date: localDate,
+          force_native: shouldForceNative,
         });
       }
     }
@@ -473,13 +478,13 @@ export async function GET(req) {
               }
               if (currentReport.status === 'queued' || currentReport.status === 'processing' || currentReport.status === 'sending') {
                 const lastActivity = new Date(currentReport.updated_at || currentReport.created_at || 0).getTime();
-                const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
-                if (lastActivity > fifteenMinutesAgo) {
+                const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
+                if (lastActivity > threeMinutesAgo) {
                   dispatchResults.push({
                     user_id: target.user_id,
                     user_email: target.user_email,
                     status: 'skipped',
-                    reason: 'Execution actively in-flight within last 15 minutes',
+                    reason: 'Execution actively in-flight within last 3 minutes',
                   });
                   return;
                 }
@@ -517,6 +522,7 @@ export async function GET(req) {
               reportDate: localDate,
               executionId: executionId,
               correlationId: correlationId,
+              forceNative: Boolean(target.force_native),
             });
 
             dispatchResults.push({
@@ -524,6 +530,7 @@ export async function GET(req) {
               user_email: target.user_email,
               status: 'dispatched',
               execution_id: executionId,
+              forced_native: Boolean(target.force_native),
               n8n_response: n8nRes.response,
             });
           } catch (dispatchErr) {

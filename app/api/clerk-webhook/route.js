@@ -61,7 +61,7 @@ export async function POST(req) {
         .single();
 
       if (userRecord) {
-        // Ensure default settings exist
+        // Ensure default settings exist without overwriting existing user preferences
         await supabaseAdmin.from('user_settings').upsert(
           {
             user_id: userRecord.id,
@@ -70,7 +70,7 @@ export async function POST(req) {
             max_gmail_connections: 2,
             onboarding_completed: false,
           },
-          { onConflict: 'user_id' }
+          { onConflict: 'user_id', ignoreDuplicates: true }
         );
       }
     } else if (eventType === 'user.deleted') {

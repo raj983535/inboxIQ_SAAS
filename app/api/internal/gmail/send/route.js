@@ -123,30 +123,28 @@ export async function POST(req) {
       });
     }
 
-    // 3. Try to deliver via primary connected Gmail account (Slot 1)
-    const { data: primaryConn } = await supabaseAdmin
+    // 3. Deliver via User's Connected Gmail (Slot 1 -> Slot 2) -> SMTP -> Platform Master Gmail OAuth
+    const { data: userConns } = await supabaseAdmin
       .from('gmail_connections')
-      .select('account_email, encrypted_refresh_token, status')
+      .select('account_email, encrypted_refresh_token, connection_slot, status')
       .eq('user_id', user_id)
-      .eq('connection_slot', 1)
       .eq('status', 'connected')
-      .maybeSingle();
+      .order('connection_slot', { ascending: true });
 
     let deliveredMethod = null;
     let messageId = null;
 
-    if (primaryConn && primaryConn.encrypted_refresh_token) {
+    const trySendViaGmailConn = async (conn, methodLabel) => {
+      if (!conn || !conn.encrypted_refresh_token) return false;
       try {
-        const refreshToken = decryptToken(primaryConn.encrypted_refresh_token);
+        const refreshToken = decryptToken(conn.encrypted_refresh_token);
         const oauth2Client = getGoogleOAuth2Client();
         oauth2Client.setCredentials({ refresh_token: refreshToken });
 
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-        // Construct RFC 2822 email message
         const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
         const messageParts = [
-          `From: InboxIQ Intelligence <${primaryConn.account_email}>`,
+          `From: InboxIQ Intelligence <${conn.account_email}>`,
           `To: <${recipientEmail}>`,
           `Subject: ${utf8Subject}`,
           `Content-Type: text/html; charset=utf-8`,
@@ -166,26 +164,52 @@ export async function POST(req) {
           requestBody: { raw: encodedMessage },
         });
 
-        deliveredMethod = 'gmail_oauth_slot1';
+        deliveredMethod = methodLabel;
         messageId = sendRes.data?.id;
+        return true;
       } catch (gmailErr) {
-        console.warn('Gmail OAuth delivery failed, trying SMTP fallback:', gmailErr.message);
+        console.warn(`[GmailSend] Gmail OAuth delivery (${methodLabel}) failed:`, gmailErr.message);
+        return false;
       }
+    };
+
+    for (const conn of userConns || []) {
+      const sent = await trySendViaGmailConn(conn, `gmail_oauth_slot${conn.connection_slot || 1}`);
+      if (sent) break;
     }
 
     // 4. Fallback: SMTP Transporter (if configured)
     if (!deliveredMethod) {
       const transporter = getEmailTransporter();
       if (transporter) {
-        const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@inboxiq.online';
-        const info = await transporter.sendMail({
-          from: `"InboxIQ Intelligence" <${fromEmail}>`,
-          to: recipientEmail,
-          subject: subject,
-          html: html_content,
-        });
-        deliveredMethod = 'smtp';
-        messageId = info.messageId;
+        try {
+          const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@inboxiq.online';
+          const info = await transporter.sendMail({
+            from: `"InboxIQ Intelligence" <${fromEmail}>`,
+            to: recipientEmail,
+            subject: subject,
+            html: html_content,
+          });
+          deliveredMethod = 'smtp';
+          messageId = info.messageId;
+        } catch (smtpErr) {
+          console.warn('[GmailSend] SMTP delivery failed:', smtpErr.message);
+        }
+      }
+    }
+
+    // 4.5 Fallback: Platform Master Gmail OAuth Dispatcher
+    if (!deliveredMethod) {
+      const { data: systemConn } = await supabaseAdmin
+        .from('gmail_connections')
+        .select('account_email, encrypted_refresh_token, status')
+        .eq('account_email', 'sahilrajppm2022@gmail.com')
+        .eq('status', 'connected')
+        .limit(1)
+        .maybeSingle();
+
+      if (systemConn) {
+        await trySendViaGmailConn(systemConn, 'gmail_oauth_system_fallback');
       }
     }
 

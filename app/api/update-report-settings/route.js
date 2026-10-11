@@ -40,8 +40,14 @@ export async function POST(req) {
 
     const { data: updatedSettings, error } = await supabaseAdmin
       .from('user_settings')
-      .update(updates)
-      .eq('user_id', user.id)
+      .upsert(
+        {
+          user_id: user.id,
+          status: 'active',
+          ...updates,
+        },
+        { onConflict: 'user_id' }
+      )
       .select()
       .single();
 
