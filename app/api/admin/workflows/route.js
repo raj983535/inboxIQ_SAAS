@@ -119,10 +119,10 @@ export async function POST(req) {
 
     if (execErr) throw execErr;
 
-    // 3. Dispatch to n8n
+    // 3. Dispatch to n8n (with isTestRun = true)
     try {
       const { triggerN8nWorkflow } = await import('@/lib/n8n/client');
-      await triggerN8nWorkflow({
+      const triggerResult = await triggerN8nWorkflow({
         userId: targetUser.id,
         userEmail: targetUser.email,
         profession: targetUser.profession || 'professor_teacher',
@@ -134,20 +134,50 @@ export async function POST(req) {
         reportDate: today,
         executionId: executionId,
         correlationId: correlationId,
+        isTestRun: true,
       });
 
-      // Update execution status to 'processing'
+      if (triggerResult.engine === 'n8n_cloud') {
+        // Successfully accepted by external n8n engine
+        await supabaseAdmin
+          .from('workflow_executions')
+          .update({ status: 'processing' })
+          .eq('execution_id', executionId);
+
+        return NextResponse.json({
+          success: true,
+          message: `Test workflow dispatched to n8n Cloud and is processing in n8n. Execution ID: ${executionId}`,
+          execution_id: executionId,
+          user_email: targetUser.email,
+          engine: 'n8n_cloud',
+          n8n_dispatched: true,
+        });
+      }
+
+      // Executed via Native Engine fallback
+      const nativeDetails = triggerResult.response || {};
+      const n8nNote = triggerResult.n8n_status
+        ? ` (n8n Cloud returned HTTP ${triggerResult.n8n_status}: ${triggerResult.n8n_error || 'Unpublished/Inactive'}. Click 'Publish' in n8n editor to run inside n8n canvas)`
+        : '';
+
       await supabaseAdmin
         .from('workflow_executions')
-        .update({ status: 'processing' })
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          emails_processed: nativeDetails.total_emails || nativeDetails.emails_processed || 0,
+        })
         .eq('execution_id', executionId);
 
       return NextResponse.json({
         success: true,
-        message: 'Test workflow dispatched successfully and is processing in n8n engine.',
+        message: `Test workflow executed via Native Engine.${n8nNote}`,
         execution_id: executionId,
         user_email: targetUser.email,
-        n8n_dispatched: true,
+        engine: 'inboxiq_native_engine',
+        n8n_dispatched: false,
+        n8n_status: triggerResult.n8n_status,
+        n8n_error: triggerResult.n8n_error,
       });
     } catch (err) {
       // Record failure immediately in DB so it never hangs as 'queued'
