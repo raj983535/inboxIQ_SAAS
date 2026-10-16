@@ -59,8 +59,8 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing execution_id or user_id in payload.', 400);
     }
 
-    // 2. Update workflow_executions table
-    const { data: updatedExec } = await supabaseAdmin
+    // 2. Update workflow_executions table strictly by execution_id
+    const { data: updatedExec, error: execErr } = await supabaseAdmin
       .from('workflow_executions')
       .update({
         status: status === 'partial' ? 'completed' : status,
@@ -71,39 +71,27 @@ export async function POST(req) {
         error_message: error_message || null,
       })
       .eq('execution_id', execution_id)
+      .eq('user_id', user_id)
       .select('id');
 
-    if (!updatedExec || updatedExec.length === 0) {
-      // Fallback: update latest queued execution for this user
-      const { data: fallbackUpdated } = await supabaseAdmin
-        .from('workflow_executions')
-        .update({
-          execution_id: execution_id,
-          status: status === 'partial' ? 'completed' : status,
-          completed_at: new Date().toISOString(),
-          duration_ms: duration_ms,
-          emails_processed: emails_processed,
-          error_category: error_category || null,
-          error_message: error_message || null,
-        })
-        .eq('user_id', user_id)
-        .eq('status', 'queued')
-        .select('id');
+    if (execErr) {
+      console.warn('[n8nWebhook] Failed to update execution record:', execErr.message);
+    }
 
-      if (!fallbackUpdated || fallbackUpdated.length === 0) {
-        await supabaseAdmin.from('workflow_executions').insert({
-          execution_id: execution_id,
-          user_id: user_id,
-          correlation_id: payload.correlation_id || correlationId,
-          status: status === 'partial' ? 'completed' : status,
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          duration_ms: duration_ms,
-          emails_processed: emails_processed,
-          error_category: error_category || null,
-          error_message: error_message || null,
-        });
-      }
+    if (!updatedExec || updatedExec.length === 0) {
+      // If no execution record exists for this exact execution_id + user_id, insert it directly
+      await supabaseAdmin.from('workflow_executions').insert({
+        execution_id: execution_id,
+        user_id: user_id,
+        correlation_id: payload.correlation_id || correlationId,
+        status: status === 'partial' ? 'completed' : status,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        duration_ms: duration_ms,
+        emails_processed: emails_processed,
+        error_category: error_category || null,
+        error_message: error_message || null,
+      });
     }
 
     // 3. Update reports metadata table

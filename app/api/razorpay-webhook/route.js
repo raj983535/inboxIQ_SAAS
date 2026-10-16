@@ -39,7 +39,45 @@ export async function POST(req) {
     const userId = entity.notes?.userId;
     const userEmail = entity.notes?.userEmail || entity.email;
 
+    const crypto = await import('crypto');
+    const providerEventId =
+      payload.event_id ||
+      req.headers.get('x-razorpay-event-id') ||
+      entity.id ||
+      crypto.createHash('sha256').update(rawBody).digest('hex');
+
+    // 2.5 Idempotency Guard: Deduplicate against payment_events table
+    const { data: existingEvent } = await supabaseAdmin
+      .from('payment_events')
+      .select('status')
+      .eq('provider', 'razorpay')
+      .eq('provider_event_id', providerEventId)
+      .maybeSingle();
+
+    if (existingEvent?.status === 'processed') {
+      return NextResponse.json({
+        success: true,
+        message: 'Event already processed idempotently.',
+        event_id: providerEventId,
+      });
+    }
+
+    if (!existingEvent) {
+      await supabaseAdmin.from('payment_events').insert({
+        provider: 'razorpay',
+        provider_event_id: providerEventId,
+        event_type: event || 'unknown',
+        status: 'processing',
+        received_at: new Date().toISOString(),
+      });
+    }
+
     if (!subscriptionId && !userId) {
+      await supabaseAdmin
+        .from('payment_events')
+        .update({ status: 'processed', processed_at: new Date().toISOString() })
+        .eq('provider', 'razorpay')
+        .eq('provider_event_id', providerEventId);
       return NextResponse.json({ success: true, message: 'Event ignored: no identifier found.' });
     }
 
@@ -58,6 +96,11 @@ export async function POST(req) {
     }
 
     if (!targetStatus) {
+      await supabaseAdmin
+        .from('payment_events')
+        .update({ status: 'processed', processed_at: new Date().toISOString() })
+        .eq('provider', 'razorpay')
+        .eq('provider_event_id', providerEventId);
       return NextResponse.json({ success: true, message: `Event ${event} received but requires no status transition.` });
     }
 
@@ -76,33 +119,38 @@ export async function POST(req) {
       updated_at: new Date().toISOString(),
     };
 
-    // 4. Update Supabase
+    // 4. Update Supabase with verified error handling
     if (userId) {
-      const { data: updated } = await supabaseAdmin
+      const { data: updated, error: updateErr } = await supabaseAdmin
         .from('subscriptions')
         .update(updatePayload)
         .eq('user_id', userId)
         .select('id');
 
+      if (updateErr) throw updateErr;
+
       // If user row does not exist yet, create it
       if (!updated || updated.length === 0) {
-        await supabaseAdmin.from('subscriptions').insert({
+        const { error: insertErr } = await supabaseAdmin.from('subscriptions').insert({
           ...updatePayload,
           user_id: userId,
           plan_name: entity.notes?.planName || 'InboxIQ Pro',
         });
+        if (insertErr) throw insertErr;
       }
 
       if (isCharged) {
-        await supabaseAdmin
+        const { error: settingsErr } = await supabaseAdmin
           .from('user_settings')
           .upsert({ user_id: userId, onboarding_completed: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (settingsErr) console.warn('[RazorpayWebhook] Settings update warning:', settingsErr.message);
       }
     } else if (subscriptionId) {
-      await supabaseAdmin
+      const { error: subErr } = await supabaseAdmin
         .from('subscriptions')
         .update(updatePayload)
         .eq('razorpay_subscription_id', subscriptionId);
+      if (subErr) throw subErr;
     }
 
     // 5. Send automated email notifications to user based on event
@@ -133,11 +181,21 @@ export async function POST(req) {
           });
         }
       } catch (mailErr) {
-        console.warn('Webhook notification email notice:', mailErr.message);
+        console.warn('[RazorpayWebhook] Notification email notice:', mailErr.message);
       }
     }
 
-    return NextResponse.json({ success: true, processed_event: event });
+    // 6. Mark payment event as processed
+    await supabaseAdmin
+      .from('payment_events')
+      .update({
+        status: 'processed',
+        processed_at: new Date().toISOString(),
+      })
+      .eq('provider', 'razorpay')
+      .eq('provider_event_id', providerEventId);
+
+    return NextResponse.json({ success: true, processed_event: event, event_id: providerEventId });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
     return NextResponse.json(safeError, { status: safeError.status });
