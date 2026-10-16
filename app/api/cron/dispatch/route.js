@@ -113,7 +113,7 @@ export async function GET(req) {
 
       // Fetch user settings and existing reports for the last 2 days (prevents unbounded query)
       const yesterdayISO = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const [{ data: settingsList }, { data: allExistingReports }] = await Promise.all([
+      const [{ data: settingsList, error: setErr }, { data: allExistingReports, error: repErr }] = await Promise.all([
         supabaseAdmin
           .from('user_settings')
           .select('user_id, report_time, timezone, status')
@@ -125,10 +125,16 @@ export async function GET(req) {
           .gte('report_date', yesterdayISO),
       ]);
 
+      if (setErr) console.warn('[CronDispatch] Warning fetching user settings:', setErr.message);
+      if (repErr) console.warn('[CronDispatch] Warning fetching existing reports:', repErr.message);
+
       const settingsMap = new Map((settingsList || []).map(s => [s.user_id, s]));
       for (const r of allExistingReports || []) {
         reportMap.set(`${r.user_id}_${r.report_date}_${r.report_type || 'daily'}`, r);
         reportMap.set(`${r.user_id}_${r.report_date}`, r);
+        if (r.status === 'delivered' || r.email_delivery_status === 'delivered') {
+          reportMap.set(`${r.user_id}_delivered_${r.report_date}`, true);
+        }
       }
 
       for (const sub of subs) {
@@ -182,22 +188,29 @@ export async function GET(req) {
         const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
         const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
 
-        // Resilient Dispatch & Same-Day Catch-Up Window:
-        // Trigger when current time has reached preferred time within a 6-hour same-day window (diffMinutes between 0 and 359).
-        // With a 30-minute cron cadence (0,30 * * * *), if a user's report is already delivered today, the idempotency gate below
-        // skips them immediately. If a transient blip occurred at their exact minute, subsequent cron ticks automatically catch up!
-        // Overridden when ?force=true is explicitly passed by authorized admin/test trigger.
-        if (!isForce && (diffMinutes < 0 || diffMinutes >= 360)) {
+        // Slot Time-Window Gate:
+        // Briefings are scheduled by hour slot (e.g. 08:00, 09:00).
+        // Trigger only if scheduler runs within the user's target slot window [-5, +20] minutes.
+        // E.g., for 09:00 AM, eligible only between 08:55 AM and 09:20 AM.
+        // Prevents running hours later and wasting n8n execution credits.
+        // Overridden only when ?force=true is explicitly passed by authorized admin/test trigger.
+        if (!isForce && (diffMinutes < -5 || diffMinutes > 20)) {
           continue;
         }
 
         // Idempotency & In-Flight Protection:
-        // Skip if report or reminder already delivered today OR actively processing (queued/processing within last 15 mins)
-        const existingReport = reportMap.get(`${user.id}_${localDate}`);
+        // Skip if report already delivered today OR actively processing (queued/processing within last 15 mins)
+        if (reportMap.get(`${user.id}_delivered_${localDate}`)) {
+          continue; // Already delivered today, strictly skip
+        }
+
+        const existingReport =
+          reportMap.get(`${user.id}_${localDate}_daily`) ||
+          reportMap.get(`${user.id}_${localDate}`);
         let isRetryRun = false;
         if (existingReport) {
           if (existingReport.status === 'delivered' || existingReport.email_delivery_status === 'delivered') {
-            continue; // Already delivered today, skip
+            continue; // Already delivered today, strictly skip
           }
           if (existingReport.status === 'queued' || existingReport.status === 'processing' || existingReport.status === 'sending') {
             // Check if recently queued/processed to prevent duplicate concurrent runs
@@ -206,7 +219,7 @@ export async function GET(req) {
             if (lastActivity > threeMinutesAgo) {
               continue; // Actively in-flight within last 3 minutes, skip
             }
-            // If older than 3 minutes, n8n stalled or dropped the execution. Force native self-healing retry!
+            // If older than 3 minutes, stalled or dropped execution. Allow retry.
             isRetryRun = true;
           }
           if (existingReport.status === 'failed') {
