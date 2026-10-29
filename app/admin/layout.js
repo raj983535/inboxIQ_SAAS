@@ -30,15 +30,15 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const isLoginPage = pathname === '/admin/login';
   
-  // Strict Admin state: NEVER assume true from localStorage/cache.
-  // We strictly initialize as false or null, ensuring no non-admin ever sees even 1ms of admin UI.
+  // Strict Admin state initialization:
+  // Check cached user account. If user is admin (by role or email), initialize cleanly.
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        const cached = sessionStorage.getItem('inboxiq_cached_account') || localStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email)) {
+          if (parsed?.user?.is_admin === true || parsed?.user?.role === 'admin' || parsed?.user?.role === 'super_admin' || (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email))) {
             return true;
           }
         }
@@ -50,10 +50,10 @@ export default function AdminLayout({ children }) {
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = sessionStorage.getItem('inboxiq_cached_account');
+        const cached = sessionStorage.getItem('inboxiq_cached_account') || localStorage.getItem('inboxiq_cached_account');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email)) {
+          if (parsed?.user?.is_admin === true || parsed?.user?.role === 'admin' || parsed?.user?.role === 'super_admin' || (parsed?.user?.email && isAuthorizedAdminEmail(parsed.user.email))) {
             return false;
           }
         }
@@ -97,8 +97,8 @@ export default function AdminLayout({ children }) {
 
           if (res.ok) {
             const data = await res.json();
-            const userEmail = data?.user?.email;
-            const hasAdmin = userEmail && isAuthorizedAdminEmail(userEmail);
+            const user = data?.user;
+            const hasAdmin = user?.is_admin === true || user?.role === 'admin' || user?.role === 'super_admin' || (user?.email && isAuthorizedAdminEmail(user.email));
 
             if (isMounted) {
               if (hasAdmin) {
