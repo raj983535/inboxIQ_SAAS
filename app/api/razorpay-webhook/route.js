@@ -46,30 +46,45 @@ export async function POST(req) {
       entity.id ||
       crypto.createHash('sha256').update(rawBody).digest('hex');
 
-    // 2.5 Idempotency Guard: Deduplicate against payment_events table
-    const { data: existingEvent } = await supabaseAdmin
+    // 2.5 Atomic Idempotency Claim on payment_events
+    const { data: claimedEvent, error: claimErr } = await supabaseAdmin
       .from('payment_events')
-      .select('status')
-      .eq('provider', 'razorpay')
-      .eq('provider_event_id', providerEventId)
-      .maybeSingle();
-
-    if (existingEvent?.status === 'processed') {
-      return NextResponse.json({
-        success: true,
-        message: 'Event already processed idempotently.',
-        event_id: providerEventId,
-      });
-    }
-
-    if (!existingEvent) {
-      await supabaseAdmin.from('payment_events').insert({
+      .insert({
         provider: 'razorpay',
         provider_event_id: providerEventId,
         event_type: event || 'unknown',
         status: 'processing',
         received_at: new Date().toISOString(),
-      });
+      })
+      .select('id, status')
+      .maybeSingle();
+
+    if (claimErr) {
+      // Row already exists - inspect current processing state
+      const { data: existingEvent } = await supabaseAdmin
+        .from('payment_events')
+        .select('status, received_at')
+        .eq('provider', 'razorpay')
+        .eq('provider_event_id', providerEventId)
+        .maybeSingle();
+
+      if (existingEvent?.status === 'processed') {
+        return NextResponse.json({
+          success: true,
+          message: 'Event already processed idempotently.',
+          event_id: providerEventId,
+        });
+      }
+
+      const ageMs = Date.now() - new Date(existingEvent?.received_at || 0).getTime();
+      if (existingEvent?.status === 'processing' && ageMs < 5 * 60 * 1000) {
+        return NextResponse.json({
+          success: true,
+          message: 'Event is actively being processed by concurrent worker.',
+          event_id: providerEventId,
+        });
+      }
+      // If older than 5 minutes (stale crash), allow current execution to complete processing
     }
 
     if (!subscriptionId && !userId) {
@@ -81,7 +96,7 @@ export async function POST(req) {
       return NextResponse.json({ success: true, message: 'Event ignored: no identifier found.' });
     }
 
-    // 3. Process events idempotently
+    // 3. Process events idempotently with monotonic ordering
     let targetStatus = null;
     const isCharged = event === 'subscription.activated' || event === 'subscription.charged' || event === 'payment.captured';
 
@@ -119,39 +134,70 @@ export async function POST(req) {
       updated_at: new Date().toISOString(),
     };
 
-    // 4. Update Supabase with verified error handling
+    // 4. Monotonic Subscription State Guard:
+    // Out-of-order event protection: Never let an older cancellation or failure downgrade
+    // an active subscription whose renewal has already set a later current_period_end.
+    let applyStatusUpdate = true;
     if (userId) {
-      const { data: updated, error: updateErr } = await supabaseAdmin
+      const { data: existingSub } = await supabaseAdmin
         .from('subscriptions')
-        .update(updatePayload)
+        .select('id, status, current_period_end, updated_at')
         .eq('user_id', userId)
-        .select('id');
+        .maybeSingle();
 
-      if (updateErr) throw updateErr;
-
-      // If user row does not exist yet, create it
-      if (!updated || updated.length === 0) {
-        const { error: insertErr } = await supabaseAdmin.from('subscriptions').insert({
-          ...updatePayload,
-          user_id: userId,
-          plan_name: entity.notes?.planName || 'InboxIQ Pro',
-        });
-        if (insertErr) throw insertErr;
+      if (existingSub) {
+        if (existingSub.status === 'active' && !isCharged) {
+          const existingEndTime = new Date(existingSub.current_period_end || 0).getTime();
+          const incomingEndTime = new Date(nextEnd).getTime();
+          if (existingEndTime > incomingEndTime) {
+            console.warn(`[RazorpayWebhook] Monotonic guard: Suppressed out-of-order ${targetStatus} event for user ${userId}. Active period (${existingSub.current_period_end}) is later than incoming event period (${nextEnd}).`);
+            applyStatusUpdate = false;
+          }
+        }
       }
-
-      if (isCharged) {
-        const { error: settingsErr } = await supabaseAdmin
-          .from('user_settings')
-          .upsert({ user_id: userId, onboarding_completed: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-        if (settingsErr) console.warn('[RazorpayWebhook] Settings update warning:', settingsErr.message);
-      }
-    } else if (subscriptionId) {
-      const { error: subErr } = await supabaseAdmin
-        .from('subscriptions')
-        .update(updatePayload)
-        .eq('razorpay_subscription_id', subscriptionId);
-      if (subErr) throw subErr;
     }
+
+    if (applyStatusUpdate) {
+      if (userId) {
+        const { data: updated, error: updateErr } = await supabaseAdmin
+          .from('subscriptions')
+          .update(updatePayload)
+          .eq('user_id', userId)
+          .select('id');
+
+        if (updateErr) throw updateErr;
+
+        // If user row does not exist yet, create it
+        if (!updated || updated.length === 0) {
+          const { error: insertErr } = await supabaseAdmin.from('subscriptions').insert({
+            ...updatePayload,
+            user_id: userId,
+            plan_name: entity.notes?.planName || 'InboxIQ Pro',
+          });
+          if (insertErr) throw insertErr;
+        }
+
+        if (isCharged) {
+          const { error: settingsErr } = await supabaseAdmin
+            .from('user_settings')
+            .upsert({ user_id: userId, onboarding_completed: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+          if (settingsErr) console.warn('[RazorpayWebhook] Settings update warning:', settingsErr.message);
+        }
+      } else if (subscriptionId) {
+        const { error: subErr } = await supabaseAdmin
+          .from('subscriptions')
+          .update(updatePayload)
+          .eq('razorpay_subscription_id', subscriptionId);
+        if (subErr) throw subErr;
+      }
+    }
+
+    // Authoritatively mark payment event as processed
+    await supabaseAdmin
+      .from('payment_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .eq('provider', 'razorpay')
+      .eq('provider_event_id', providerEventId);
 
     // 5. Send automated email notifications to user based on event
     if (userEmail) {

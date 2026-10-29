@@ -76,8 +76,11 @@ export async function POST(req) {
       }
     } catch (rzpErr) {
       if (rzpErr instanceof AppError) throw rzpErr;
-      console.warn('[VerifyPayment] Note on direct Razorpay API reconciliation:', rzpErr.message);
-      // If payment was verified via signature, log and proceed with verified signature guarantee
+      throw new AppError(
+        ErrorCategories.PAYMENT_ERROR,
+        `Authoritative billing provider reconciliation failed: ${rzpErr.message}`,
+        502
+      );
     }
 
     const requestedCurrency = currency === 'USD' ? 'USD' : 'INR';
@@ -103,23 +106,33 @@ export async function POST(req) {
     };
 
     // Check if subscription record already exists for user
-    const { data: existingSub } = await supabaseAdmin
+    const { data: existingSub, error: fetchSubErr } = await supabaseAdmin
       .from('subscriptions')
       .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (fetchSubErr) {
+      throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to query existing subscription: ${fetchSubErr.message}`, 500);
+    }
+
     if (existingSub?.id) {
-      await supabaseAdmin
+      const { error: updateSubErr } = await supabaseAdmin
         .from('subscriptions')
         .update(subPayload)
         .eq('id', existingSub.id);
+      if (updateSubErr) {
+        throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to update subscription record: ${updateSubErr.message}`, 500);
+      }
     } else {
-      await supabaseAdmin.from('subscriptions').insert(subPayload);
+      const { error: insertSubErr } = await supabaseAdmin.from('subscriptions').insert(subPayload);
+      if (insertSubErr) {
+        throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to insert subscription record: ${insertSubErr.message}`, 500);
+      }
     }
 
     // Mark onboarding completed in user_settings
-    await supabaseAdmin
+    const { error: settingsErr } = await supabaseAdmin
       .from('user_settings')
       .upsert(
         {
@@ -129,6 +142,10 @@ export async function POST(req) {
         },
         { onConflict: 'user_id' }
       );
+
+    if (settingsErr) {
+      throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to update user onboarding settings: ${settingsErr.message}`, 500);
+    }
 
     // Send confirmation email asynchronously (non-blocking)
     try {

@@ -61,7 +61,7 @@ runTest('F-01: Legacy leaked fallback secret is strictly rejected', () => {
   }, /Missing or invalid internal security credentials/);
 });
 
-// TEST 3: Genuine configured secret passes authentication
+// TEST 3: Genuine configured secret validates successfully with timingSafeEqual
 runTest('F-01: Configured secret validates successfully with timingSafeEqual', () => {
   const testSecret = 'active_secure_production_secret_key_998877';
   process.env.N8N_WEBHOOK_SECRET = testSecret;
@@ -147,6 +147,115 @@ runTest('F-08: verifyPaymentSignature correctly validates authentic HMAC signatu
     signature: 'bad_signature_attempt',
   });
   assert.strictEqual(isForgedValid, false);
+});
+
+// TEST 7: Scoped Trust Boundary: verifyCronAuth rejects N8N_WEBHOOK_SECRET and INTERNAL_API_SECRET
+runTest('Security: verifyCronAuth strictly rejects non-cron secrets', () => {
+  process.env.CRON_SECRET = 'cron_super_secret_112233';
+  process.env.N8N_WEBHOOK_SECRET = 'n8n_webhook_secret_445566';
+  process.env.INTERNAL_API_SECRET = 'internal_api_secret_778899';
+
+  const { verifyCronAuth } = require('../lib/internal-auth');
+
+  // Attacker tries to authenticate to cron using N8N_WEBHOOK_SECRET
+  const fakeReq1 = {
+    headers: {
+      get: (h) => (h === 'x-inboxiq-secret' ? 'n8n_webhook_secret_445566' : null),
+    },
+  };
+  assert.throws(() => {
+    verifyCronAuth(fakeReq1);
+  }, /Invalid CRON_SECRET credentials/);
+
+  // Attacker tries to authenticate to cron using INTERNAL_API_SECRET
+  const fakeReq2 = {
+    headers: {
+      get: (h) => (h === 'x-inboxiq-secret' ? 'internal_api_secret_778899' : null),
+    },
+  };
+  assert.throws(() => {
+    verifyCronAuth(fakeReq2);
+  }, /Invalid CRON_SECRET credentials/);
+
+  // Genuine CRON_SECRET succeeds
+  const validReq = {
+    headers: {
+      get: (h) => (h === 'x-inboxiq-secret' ? 'cron_super_secret_112233' : null),
+    },
+  };
+  const res = verifyCronAuth(validReq);
+  assert.ok(res.correlationId);
+});
+
+// TEST 8: Scoped Trust Boundary: verifyN8nCallbackAuth rejects CRON_SECRET and INTERNAL_API_SECRET
+runTest('Security: verifyN8nCallbackAuth strictly rejects non-webhook secrets', () => {
+  process.env.CRON_SECRET = 'cron_super_secret_112233';
+  process.env.N8N_WEBHOOK_SECRET = 'n8n_webhook_secret_445566';
+  process.env.INTERNAL_API_SECRET = 'internal_api_secret_778899';
+
+  const { verifyN8nCallbackAuth } = require('../lib/internal-auth');
+
+  // Attacker tries to authenticate to n8n webhook using CRON_SECRET
+  const fakeReq = {
+    headers: {
+      get: (h) => (h === 'x-inboxiq-secret' ? 'cron_super_secret_112233' : null),
+    },
+  };
+  assert.throws(() => {
+    verifyN8nCallbackAuth(fakeReq, '{}');
+  }, /Invalid n8n webhook authentication/);
+
+  // Genuine N8N_WEBHOOK_SECRET succeeds
+  const validReq = {
+    headers: {
+      get: (h) => (h === 'x-inboxiq-secret' ? 'n8n_webhook_secret_445566' : null),
+    },
+  };
+  const res = verifyN8nCallbackAuth(validReq, '{}');
+  assert.ok(res.correlationId);
+});
+
+// TEST 9: OAuth state signing fails closed without TOKEN_ENCRYPTION_KEY
+runTest('Security: OAuth state signing fails closed if TOKEN_ENCRYPTION_KEY is missing', () => {
+  const originalKey = process.env.TOKEN_ENCRYPTION_KEY;
+  delete process.env.TOKEN_ENCRYPTION_KEY;
+
+  const { generateOAuthState, verifyOAuthState } = require('../lib/google/oauth');
+
+  assert.throws(() => {
+    generateOAuthState({ userId: 'test_user', type: 'gmail' });
+  }, /TOKEN_ENCRYPTION_KEY.*is not configured/);
+
+  assert.throws(() => {
+    verifyOAuthState('dGVzdC5zdGF0ZQ');
+  }, /TOKEN_ENCRYPTION_KEY.*is not configured/);
+
+  process.env.TOKEN_ENCRYPTION_KEY = originalKey || 'test_token_encryption_key_1234567890';
+});
+
+// TEST 10: Admin role authorization validates role 'admin' and rejects hardcoded fallbacks
+runTest('Security: Admin authorization enforces database roles and rejects unauthorized users', () => {
+  const { checkIsAdmin, isAuthorizedAdminEmail } = require('../lib/admin-auth');
+
+  // Normal user without admin role
+  assert.strictEqual(checkIsAdmin({ id: '1', email: 'regular@user.com', role: 'user' }), false);
+
+  // Database admin user
+  assert.strictEqual(checkIsAdmin({ id: '2', email: 'admin@company.com', role: 'admin' }), true);
+
+  // Database super_admin user
+  assert.strictEqual(checkIsAdmin({ id: '3', email: 'super@company.com', role: 'super_admin' }), true);
+});
+
+// TEST 11: Configuration Health Check identifies missing production categories
+runTest('Config: getServerConfigHealth correctly inspects categorized variables', () => {
+  const { getServerConfigHealth } = require('../lib/config/server');
+  const health = getServerConfigHealth();
+  assert.strictEqual(typeof health.allValid, 'boolean');
+  assert.ok(health.categories.RUNTIME);
+  assert.ok(health.categories.BILLING);
+  assert.ok(health.categories.GOOGLE);
+  assert.ok(health.categories.AUTOMATION);
 });
 
 console.log(`\n=============================================`);

@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { verifyN8nWebhookSignature } from '@/lib/n8n/client';
-import { verifyInternalAuth } from '@/lib/internal-auth';
+import { verifyN8nCallbackAuth } from '@/lib/internal-auth';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { formatSafeErrorResponse, AppError, ErrorCategories, logSystemError } from '@/lib/errors';
 import { generateCorrelationId } from '@/lib/utils';
+
+const VALID_STATUSES = new Set(['completed', 'failed', 'partial', 'success']);
+const VALID_DELIVERY_STATUSES = new Set(['delivered', 'failed', 'pending', 'skipped']);
+const VALID_DRIVE_STATUSES = new Set(['uploaded', 'failed', 'skipped', 'pending']);
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(req) {
   const correlationId = generateCorrelationId();
@@ -12,106 +16,116 @@ export async function POST(req) {
     let payload;
     try {
       payload = JSON.parse(rawBody);
-    } catch (parseErr) {
+    } catch {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Malformed n8n webhook JSON payload.', 400);
     }
 
-    // 1. Multi-Tier Security Verification:
-    // Tier 1: Direct Internal Secret / API Key
-    // Tier 2: HMAC-SHA256 Cryptographic Signature
-    // Tier 3: Authoritative Database Execution Match (prevents legitimate n8n callbacks from failing due to header skew)
-    const secretHeader = req.headers.get('x-inboxiq-secret') ||
-      req.headers.get('x-internal-key') ||
-      (req.headers.get('authorization')?.startsWith('Bearer ') ? req.headers.get('authorization').slice(7) : null);
-    const timestamp = req.headers.get('x-inboxiq-timestamp');
-    const signature = req.headers.get('x-inboxiq-signature');
-    let isValid = false;
+    // 1. Strict Webhook Authentication (Scope: 'webhook' -> N8N_WEBHOOK_SECRET only)
+    verifyN8nCallbackAuth(req, rawBody);
 
-    if (secretHeader || timestamp) {
-      try {
-        verifyInternalAuth(req, rawBody);
-        isValid = true;
-      } catch (authErr) {
-        isValid = false;
-      }
-    } else if (signature) {
-      isValid = verifyN8nWebhookSignature(rawBody, signature);
-    }
-
-    if (!isValid) {
-      throw new AppError(ErrorCategories.AUTH_ERROR, 'Invalid n8n webhook authentication. Cryptographic signature or authorized secret is required.', 401);
-    }
     const {
       execution_id,
       user_id,
       report_date,
-      status, // 'completed' | 'failed' | 'partial'
-      email_delivery_status, // 'delivered' | 'failed'
-      drive_upload_status, // 'uploaded' | 'failed'
-      emails_processed = 0,
-      duration_ms = 0,
+      status: rawStatus,
+      email_delivery_status: rawDeliveryStatus,
+      drive_upload_status: rawDriveStatus,
+      emails_processed: rawEmailsProcessed,
+      duration_ms: rawDurationMs,
       error_category,
       error_message,
       executive_summary,
     } = payload;
 
-    if (!user_id || !execution_id) {
-      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing execution_id or user_id in payload.', 400);
+    if (!user_id || typeof user_id !== 'string' || !execution_id || typeof execution_id !== 'string') {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing or invalid execution_id or user_id in payload.', 400);
     }
 
-    // 2. Update workflow_executions table strictly by execution_id
-    const { data: updatedExec, error: execErr } = await supabaseAdmin
+    // 2. Schema and Allowlist Validation
+    const status = (rawStatus || '').toLowerCase();
+    if (!VALID_STATUSES.has(status)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, `Invalid execution status: ${rawStatus}`, 400);
+    }
+
+    const email_delivery_status = rawDeliveryStatus ? rawDeliveryStatus.toLowerCase() : 'delivered';
+    if (!VALID_DELIVERY_STATUSES.has(email_delivery_status)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, `Invalid email_delivery_status: ${rawDeliveryStatus}`, 400);
+    }
+
+    const drive_upload_status = rawDriveStatus ? rawDriveStatus.toLowerCase() : 'skipped';
+    if (!VALID_DRIVE_STATUSES.has(drive_upload_status)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, `Invalid drive_upload_status: ${rawDriveStatus}`, 400);
+    }
+
+    if (report_date && !DATE_REGEX.test(report_date)) {
+      throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Invalid report_date format. Expected YYYY-MM-DD.', 400);
+    }
+
+    const emails_processed = Math.max(0, parseInt(rawEmailsProcessed, 10) || 0);
+    const duration_ms = Math.max(0, parseInt(rawDurationMs, 10) || 0);
+
+    // 3. Strict Pre-existing Execution Verification
+    // A callback is NEVER permitted to synthesize an arbitrary execution record
+    const { data: existingExec, error: findExecErr } = await supabaseAdmin
+      .from('workflow_executions')
+      .select('id, status')
+      .eq('execution_id', execution_id)
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (findExecErr) {
+      throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to verify execution record: ${findExecErr.message}`, 500);
+    }
+
+    if (!existingExec) {
+      throw new AppError(
+        ErrorCategories.VALIDATION_ERROR,
+        `Unknown execution '${execution_id}' for user. Callbacks cannot create uninitiated executions.`,
+        404
+      );
+    }
+
+    // 4. Update workflow_executions table strictly by execution_id
+    const finalStatus = status === 'partial' || status === 'success' ? 'completed' : status;
+    const { error: execErr } = await supabaseAdmin
       .from('workflow_executions')
       .update({
-        status: status === 'partial' ? 'completed' : status,
+        status: finalStatus,
         completed_at: new Date().toISOString(),
-        duration_ms: duration_ms,
-        emails_processed: emails_processed,
+        duration_ms,
+        emails_processed,
         error_category: error_category || null,
         error_message: error_message || null,
       })
       .eq('execution_id', execution_id)
-      .eq('user_id', user_id)
-      .select('id');
+      .eq('user_id', user_id);
 
     if (execErr) {
-      console.warn('[n8nWebhook] Failed to update execution record:', execErr.message);
+      throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to update execution record: ${execErr.message}`, 500);
     }
 
-    if (!updatedExec || updatedExec.length === 0) {
-      // If no execution record exists for this exact execution_id + user_id, insert it directly
-      await supabaseAdmin.from('workflow_executions').insert({
-        execution_id: execution_id,
-        user_id: user_id,
-        correlation_id: payload.correlation_id || correlationId,
-        status: status === 'partial' ? 'completed' : status,
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        duration_ms: duration_ms,
-        emails_processed: emails_processed,
-        error_category: error_category || null,
-        error_message: error_message || null,
-      });
-    }
-
-    // 3. Update reports metadata table
+    // 5. Update reports metadata table with verified error checking
     if (report_date) {
-      await supabaseAdmin
+      const { error: repErr } = await supabaseAdmin
         .from('reports')
         .update({
-          status: status === 'failed' ? 'failed' : 'delivered',
-          email_delivery_status: email_delivery_status || 'delivered',
-          drive_upload_status: drive_upload_status || 'skipped',
+          status: finalStatus === 'failed' ? 'failed' : 'delivered',
+          email_delivery_status,
+          drive_upload_status,
           executive_summary: executive_summary || null,
           generated_at: new Date().toISOString(),
         })
         .eq('user_id', user_id)
         .eq('report_date', report_date)
         .eq('report_type', 'daily');
+
+      if (repErr) {
+        console.warn('[n8nWebhook] Failed to update report status:', repErr.message);
+      }
     }
 
-    // 4. Log failure if any in system_errors table and fire real-time alert
-    if (status === 'failed' || error_message) {
+    // 6. Log failure if any in system_errors table
+    if (finalStatus === 'failed' || error_message) {
       await logSystemError({
         userId: user_id,
         correlationId: payload.correlation_id || correlationId,
@@ -121,7 +135,7 @@ export async function POST(req) {
       });
     }
 
-    return NextResponse.json({ success: true, execution_id, status });
+    return NextResponse.json({ success: true, execution_id, status: finalStatus });
   } catch (error) {
     const safeError = formatSafeErrorResponse(error, correlationId);
     return NextResponse.json(safeError, { status: safeError.status });

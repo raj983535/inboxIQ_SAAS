@@ -23,42 +23,11 @@ export async function GET(req) {
   const isForce = searchParams.get('force') === 'true';
 
   try {
-    // 1. Security Check: Require CRON_SECRET Bearer or authorized internal secret
+    // 1. Security Check: Require CRON_SECRET Bearer or authorized secret
     // Note: Do NOT trust raw x-vercel-cron header alone because arbitrary internet callers can spoof it.
-    const authHeader = req.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    const internalKey = req.headers.get('x-inboxiq-secret') || req.headers.get('x-internal-key');
-    const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
-    const internalSecret = process.env.INTERNAL_API_SECRET;
-
-    const KNOWN_INTERNAL_SECRETS = [
-      cronSecret,
-      webhookSecret,
-      internalSecret,
-    ].filter(Boolean);
-
-    let isAuthorized = false;
-
-    // Check Bearer token against CRON_SECRET or known internal secrets
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const testSecret = bearerToken || internalKey;
-
-    if (testSecret && KNOWN_INTERNAL_SECRETS.length > 0) {
-      for (const secret of KNOWN_INTERNAL_SECRETS) {
-        if (testSecret.length === secret.length) {
-          try {
-            if (crypto.timingSafeEqual(Buffer.from(testSecret, 'utf8'), Buffer.from(secret, 'utf8'))) {
-              isAuthorized = true;
-              break;
-            }
-          } catch {}
-        }
-      }
-    }
-
-    if (!isAuthorized) {
-      throw new AppError(ErrorCategories.AUTH_ERROR, 'Unauthorized cron invocation.', 401);
-    }
+    // Strictly enforces CRON_SECRET scope (rejects N8N_WEBHOOK_SECRET or INTERNAL_API_SECRET)
+    const { verifyCronAuth } = await import('@/lib/internal-auth');
+    verifyCronAuth(req);
 
     // 1.5 Auto-heal: Transition expired trials and subscriptions in database
     const nowIso = new Date().toISOString();
@@ -470,43 +439,16 @@ export async function GET(req) {
           });
 
           if (claimErr) {
-            console.warn('[CronDispatch] claim_daily_briefing_dispatch RPC warning, checking directly:', claimErr.message);
-            const { data: currentReport } = await supabaseAdmin
-              .from('reports')
-              .select('id, status, email_delivery_status, created_at, updated_at')
-              .eq('user_id', target.user_id)
-              .eq('report_date', localDate)
-              .eq('report_type', 'daily')
-              .maybeSingle();
-
-            if (currentReport) {
-              if (currentReport.status === 'delivered' || currentReport.email_delivery_status === 'delivered') {
-                dispatchResults.push({
-                  user_id: target.user_id,
-                  user_email: target.user_email,
-                  status: 'skipped',
-                  reason: 'Daily report already delivered today',
-                });
-                return;
-              }
-              if (currentReport.status === 'queued' || currentReport.status === 'processing' || currentReport.status === 'sending') {
-                const lastActivity = new Date(currentReport.updated_at || currentReport.created_at || 0).getTime();
-                const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
-                if (lastActivity > threeMinutesAgo) {
-                  dispatchResults.push({
-                    user_id: target.user_id,
-                    user_email: target.user_email,
-                    status: 'skipped',
-                    reason: 'Execution actively in-flight within last 3 minutes',
-                  });
-                  return;
-                }
-              }
-            }
-          } else if (canDispatch === false) {
+            console.error(`[CronDispatch] Atomic dispatch lock RPC failed for ${target.user_id}:`, claimErr.message);
             dispatchResults.push({
-              user_id: target.user_id,
-              user_email: target.user_email,
+              status: 'failed',
+              reason: `Atomic dispatch lock error: ${claimErr.message}`,
+            });
+            return;
+          }
+
+          if (canDispatch === false) {
+            dispatchResults.push({
               status: 'skipped',
               reason: 'Execution already in-flight or delivered for today',
             });
@@ -514,13 +456,16 @@ export async function GET(req) {
           }
 
           // Record in workflow_executions
-          await supabaseAdmin.from('workflow_executions').insert({
+          const { error: insExecErr } = await supabaseAdmin.from('workflow_executions').insert({
             execution_id: executionId,
             user_id: target.user_id,
             correlation_id: correlationId,
             status: 'queued',
             started_at: new Date().toISOString(),
           });
+          if (insExecErr) {
+            console.warn('[CronDispatch] Failed to insert initial execution record:', insExecErr.message);
+          }
 
           try {
             const n8nRes = await triggerN8nWorkflow({
@@ -539,12 +484,8 @@ export async function GET(req) {
             });
 
             dispatchResults.push({
-              user_id: target.user_id,
-              user_email: target.user_email,
               status: 'dispatched',
-              execution_id: executionId,
               forced_native: Boolean(target.force_native),
-              n8n_response: n8nRes.response,
             });
           } catch (dispatchErr) {
             await Promise.all([
@@ -561,8 +502,6 @@ export async function GET(req) {
             ]).catch(() => {});
 
             dispatchResults.push({
-              user_id: target.user_id,
-              user_email: target.user_email,
               status: 'failed',
               error: dispatchErr.message,
             });
@@ -573,14 +512,12 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
+      correlation_id: correlationId,
       guard: 'active',
       total_eligible: usersToProcess.length,
       dispatched: dispatchResults.filter((r) => r.status === 'dispatched').length,
       skipped: dispatchResults.filter((r) => r.status === 'skipped').length,
       failed: dispatchResults.filter((r) => r.status === 'failed').length,
-      dispatched_executions: dispatchResults
-        .filter((r) => r.status === 'dispatched')
-        .map((r) => r.execution_id),
       duration_ms: Date.now() - startTime,
       timestamp: new Date().toISOString(),
     });
