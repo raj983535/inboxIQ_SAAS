@@ -48,31 +48,12 @@ function SafeUserButton() {
 
 function MobileSignOutButton({ onClose }) {
   const router = useRouter();
-
-  const handleSignOut = () => {
-    onClose();
-    router.push('/');
-  };
-
   if (!isLiveClerk) {
-    return (
-      <button
-        onClick={handleSignOut}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-      >
-        <LogOut className="w-4 h-4" />
-        <span>Sign Out</span>
-      </button>
-    );
-  }
-
-  try {
-    const { signOut } = useClerk();
     return (
       <button
         onClick={() => {
           onClose();
-          signOut({ redirectUrl: '/' });
+          router.push('/');
         }}
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
       >
@@ -80,18 +61,34 @@ function MobileSignOutButton({ onClose }) {
         <span>Sign Out</span>
       </button>
     );
-  } catch {
-    return (
-      <button
-        onClick={handleSignOut}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-      >
-        <LogOut className="w-4 h-4" />
-        <span>Sign Out</span>
-      </button>
-    );
   }
+  return <MobileSignOutButtonClerk onClose={onClose} />;
 }
+
+function MobileSignOutButtonClerk({ onClose }) {
+  const router = useRouter();
+  const { signOut } = useClerk();
+
+  const handleSignOut = () => {
+    onClose();
+    if (signOut) {
+      signOut({ redirectUrl: '/' });
+    } else {
+      router.push('/');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSignOut}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+    >
+      <LogOut className="w-4 h-4" />
+      <span>Sign Out</span>
+    </button>
+  );
+}
+
 
 export function AppTopbar({ title, subtitle }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

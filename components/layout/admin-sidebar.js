@@ -30,7 +30,6 @@ const isLiveClerk = Boolean(
 
 function AdminSignOutButton() {
   const router = useRouter();
-
   if (!isLiveClerk) {
     return (
       <button
@@ -41,28 +40,31 @@ function AdminSignOutButton() {
       </button>
     );
   }
-
-  try {
-    const { signOut } = useClerk();
-    return (
-      <button
-        onClick={() => signOut({ redirectUrl: '/admin/login' })}
-        className="w-full flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 transition-colors pt-2"
-      >
-        <LogOut className="w-3.5 h-3.5" /> Sign Out Admin
-      </button>
-    );
-  } catch {
-    return (
-      <button
-        onClick={() => router.push('/admin/login')}
-        className="w-full flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 transition-colors pt-2"
-      >
-        <LogOut className="w-3.5 h-3.5" /> Sign Out Admin
-      </button>
-    );
-  }
+  return <AdminSignOutButtonClerk />;
 }
+
+function AdminSignOutButtonClerk() {
+  const router = useRouter();
+  const { signOut } = useClerk();
+
+  const handleSignOut = () => {
+    if (signOut) {
+      signOut({ redirectUrl: '/admin/login' });
+    } else {
+      router.push('/admin/login');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSignOut}
+      className="w-full flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 transition-colors pt-2"
+    >
+      <LogOut className="w-3.5 h-3.5" /> Sign Out Admin
+    </button>
+  );
+}
+
 
 export function AdminSidebar() {
   const pathname = usePathname();

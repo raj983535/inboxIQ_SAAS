@@ -104,6 +104,17 @@ export async function POST(req) {
       throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to update execution record: ${execErr.message}`, 500);
     }
 
+    // Update durable report_jobs status if job exists
+    supabaseAdmin
+      .from('report_jobs')
+      .update({
+        status: finalStatus === 'completed' ? 'completed' : 'failed',
+        completed_at: new Date().toISOString(),
+        last_error: error_message || null,
+      })
+      .eq('execution_id', execution_id)
+      .then();
+
     // 5. Update reports metadata table with verified error checking
     if (report_date) {
       const { error: repErr } = await supabaseAdmin
@@ -120,7 +131,7 @@ export async function POST(req) {
         .eq('report_type', 'daily');
 
       if (repErr) {
-        console.warn('[n8nWebhook] Failed to update report status:', repErr.message);
+        throw new AppError(ErrorCategories.DATABASE_ERROR, `Failed to update report record: ${repErr.message}`, 500);
       }
     }
 

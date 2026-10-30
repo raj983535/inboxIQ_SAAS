@@ -287,21 +287,12 @@ export async function GET(req) {
         });
 
         if (lockErr) {
-          console.warn(`[CronDispatch] Reminder lock RPC warning for ${rem.user_email}:`, lockErr.message);
-          // Fallback check
-          const { data: existingRem } = await supabaseAdmin
-            .from('reports')
-            .select('id, status, email_delivery_status')
-            .eq('user_id', rem.user_id)
-            .eq('report_date', rem.local_date)
-            .eq('report_type', reminderType)
-            .maybeSingle();
+          console.error(`[CronDispatch] Atomic reminder lock RPC failed for ${rem.user_email}:`, lockErr.message);
+          // Fail-closed: Never dispatch non-atomically when RPC fails to prevent duplicate reminder spam
+          continue;
+        }
 
-          if (existingRem && (existingRem.status === 'delivered' || existingRem.email_delivery_status === 'delivered' || existingRem.email_delivery_status === 'sending')) {
-            console.log(`[CronDispatch] Reminder already sent or in-flight for ${rem.user_email} on ${rem.local_date}. Duplicate suppressed.`);
-            continue;
-          }
-        } else if (lockAcquired === false) {
+        if (lockAcquired === false) {
           console.log(`[CronDispatch] Reminder lock rejected (already claimed or delivered) for ${rem.user_email} on ${rem.local_date}. Duplicate suppressed.`);
           continue;
         }
@@ -455,6 +446,21 @@ export async function GET(req) {
             return;
           }
 
+          // Record in durable report_jobs queue table for background durability
+          try {
+            await supabaseAdmin.from('report_jobs').insert({
+              user_id: target.user_id,
+              report_date: localDate,
+              execution_id: executionId,
+              correlation_id: correlationId,
+              status: 'processing',
+              started_at: new Date().toISOString(),
+              force_native: Boolean(target.force_native),
+            });
+          } catch (jobErr) {
+            console.warn('[CronDispatch] report_jobs enqueue note:', jobErr.message);
+          }
+
           // Record in workflow_executions
           const { error: insExecErr } = await supabaseAdmin.from('workflow_executions').insert({
             execution_id: executionId,
@@ -483,6 +489,12 @@ export async function GET(req) {
               forceNative: Boolean(target.force_native),
             });
 
+            // Mark durable report_jobs as processing/dispatched
+            supabaseAdmin.from('report_jobs').update({
+              status: 'processing',
+              attempts: 1,
+            }).eq('execution_id', executionId).then();
+
             dispatchResults.push({
               status: 'dispatched',
               forced_native: Boolean(target.force_native),
@@ -497,6 +509,11 @@ export async function GET(req) {
               supabaseAdmin.from('workflow_executions').update({
                 status: 'failed',
                 error_message: dispatchErr.message,
+                completed_at: new Date().toISOString(),
+              }).eq('execution_id', executionId),
+              supabaseAdmin.from('report_jobs').update({
+                status: 'failed',
+                last_error: dispatchErr.message,
                 completed_at: new Date().toISOString(),
               }).eq('execution_id', executionId),
             ]).catch(() => {});

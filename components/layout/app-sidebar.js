@@ -24,7 +24,6 @@ const isLiveClerk = Boolean(
 
 function SignOutButton() {
   const router = useRouter();
-
   if (!isLiveClerk) {
     return (
       <button
@@ -36,30 +35,32 @@ function SignOutButton() {
       </button>
     );
   }
-
-  try {
-    const { signOut } = useClerk();
-    return (
-      <button
-        onClick={() => signOut({ redirectUrl: '/' })}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-      >
-        <LogOut className="w-3.5 h-3.5" />
-        <span>Sign Out</span>
-      </button>
-    );
-  } catch {
-    return (
-      <button
-        onClick={() => router.push('/')}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-      >
-        <LogOut className="w-3.5 h-3.5" />
-        <span>Sign Out</span>
-      </button>
-    );
-  }
+  return <SignOutButtonClerk />;
 }
+
+function SignOutButtonClerk() {
+  const router = useRouter();
+  const { signOut } = useClerk();
+
+  const handleSignOut = () => {
+    if (signOut) {
+      signOut({ redirectUrl: '/' });
+    } else {
+      router.push('/');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSignOut}
+      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+    >
+      <LogOut className="w-3.5 h-3.5" />
+      <span>Sign Out</span>
+    </button>
+  );
+}
+
 
 export function AppSidebar() {
   const pathname = usePathname();

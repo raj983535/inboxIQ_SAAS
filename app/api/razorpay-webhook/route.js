@@ -63,7 +63,7 @@ export async function POST(req) {
       // Row already exists - inspect current processing state
       const { data: existingEvent } = await supabaseAdmin
         .from('payment_events')
-        .select('status, received_at')
+        .select('id, status, received_at')
         .eq('provider', 'razorpay')
         .eq('provider_event_id', providerEventId)
         .maybeSingle();
@@ -84,7 +84,30 @@ export async function POST(req) {
           event_id: providerEventId,
         });
       }
-      // If older than 5 minutes (stale crash), allow current execution to complete processing
+
+      // If older than 5 minutes (stale processing crash), attempt an atomic ownership reclaim
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const nowIso = new Date().toISOString();
+      const { data: reclaimed, error: reclaimErr } = await supabaseAdmin
+        .from('payment_events')
+        .update({
+          status: 'processing',
+          received_at: nowIso,
+        })
+        .eq('provider', 'razorpay')
+        .eq('provider_event_id', providerEventId)
+        .eq('status', 'processing')
+        .lt('received_at', fiveMinutesAgo)
+        .select('id')
+        .maybeSingle();
+
+      if (reclaimErr || !reclaimed) {
+        return NextResponse.json({
+          success: true,
+          message: 'Event ownership could not be reclaimed or was acquired by another concurrent worker.',
+          event_id: providerEventId,
+        });
+      }
     }
 
     if (!subscriptionId && !userId) {
@@ -199,35 +222,82 @@ export async function POST(req) {
       .eq('provider', 'razorpay')
       .eq('provider_event_id', providerEventId);
 
-    // 5. Send automated email notifications to user based on event
+    // 5. Transactional Email Outbox / Direct Delivery with Outbox Fallback
     if (userEmail) {
-      try {
-        if (isCharged) {
-          await sendRenewalConfirmationEmail({
-            email: userEmail,
-            name: entity.notes?.userName || '',
-            planName: entity.notes?.planName || 'InboxIQ Pro',
-            amount: entity.amount ? Math.round(entity.amount / 100) : 99,
-            currency: entity.currency || 'INR',
-            paymentId: entity.payment_id || entity.id,
-            nextRenewalDate: nextEnd,
+      let emailType = null;
+      let emailPayload = null;
+
+      if (isCharged) {
+        emailType = 'renewal_confirmation';
+        emailPayload = {
+          userId,
+          email: userEmail,
+          name: entity.notes?.userName || '',
+          planName: entity.notes?.planName || 'InboxIQ Pro',
+          amount: entity.amount ? Math.round(entity.amount / 100) : 99,
+          currency: entity.currency || 'INR',
+          paymentId: entity.payment_id || entity.id,
+          nextRenewalDate: nextEnd,
+        };
+      } else if (event === 'subscription.cancelled') {
+        emailType = 'subscription_cancelled';
+        emailPayload = {
+          userId,
+          email: userEmail,
+          name: entity.notes?.userName || '',
+          planName: entity.notes?.planName || 'InboxIQ Pro',
+          expiryDate: nextEnd,
+        };
+      } else if (event === 'subscription.completed' || event === 'subscription.expired' || event === 'subscription.halted') {
+        emailType = 'subscription_expired';
+        emailPayload = {
+          userId,
+          email: userEmail,
+          name: entity.notes?.userName || '',
+          planName: entity.notes?.planName || 'InboxIQ Pro',
+        };
+      }
+
+      if (emailType && emailPayload) {
+        // Enqueue into durable email_outbox table for guarantee
+        try {
+          await supabaseAdmin.from('email_outbox').insert({
+            user_id: userId || null,
+            recipient_email: userEmail,
+            subject: `InboxIQ: ${emailType.replace(/_/g, ' ')}`,
+            email_type: emailType,
+            payload: emailPayload,
+            status: 'pending',
           });
-        } else if (event === 'subscription.cancelled') {
-          await sendSubscriptionCancelledEmail({
-            email: userEmail,
-            name: entity.notes?.userName || '',
-            planName: entity.notes?.planName || 'InboxIQ Pro',
-            expiryDate: nextEnd,
-          });
-        } else if (event === 'subscription.completed' || event === 'subscription.expired' || event === 'subscription.halted') {
-          await sendSubscriptionExpiredEmail({
-            email: userEmail,
-            name: entity.notes?.userName || '',
-            planName: entity.notes?.planName || 'InboxIQ Pro',
-          });
+        } catch (outboxErr) {
+          console.warn('[RazorpayWebhook] Outbox enqueue note:', outboxErr.message);
         }
-      } catch (mailErr) {
-        console.warn('[RazorpayWebhook] Notification email notice:', mailErr.message);
+
+        // Attempt immediate delivery
+        try {
+          if (emailType === 'renewal_confirmation') {
+            await sendRenewalConfirmationEmail(emailPayload);
+          } else if (emailType === 'subscription_cancelled') {
+            await sendSubscriptionCancelledEmail(emailPayload);
+          } else if (emailType === 'subscription_expired') {
+            await sendSubscriptionExpiredEmail(emailPayload);
+          }
+          // Mark outbox row as sent if recorded
+          await supabaseAdmin
+            .from('email_outbox')
+            .update({ status: 'sent', sent_at: new Date().toISOString() })
+            .eq('recipient_email', userEmail)
+            .eq('email_type', emailType)
+            .eq('status', 'pending');
+        } catch (mailErr) {
+          console.error('[RazorpayWebhook] Immediate delivery deferred to email outbox:', mailErr.message);
+          await supabaseAdmin
+            .from('email_outbox')
+            .update({ status: 'failed', last_error: mailErr.message })
+            .eq('recipient_email', userEmail)
+            .eq('email_type', emailType)
+            .eq('status', 'pending');
+        }
       }
     }
 
