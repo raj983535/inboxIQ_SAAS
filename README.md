@@ -189,7 +189,7 @@ RAZORPAY_PLAN_ID_STUDENT_INR=plan_...
 RAZORPAY_PLAN_ID_PROFESSIONAL_INR=plan_...
 
 # 6. n8n Automation Engine (Origin URL, without /workflow/... or /webhook/... paths)
-N8N_BASE_URL=https://axiaracompany2.app.n8n.cloud
+N8N_BASE_URL=https://axiaracompany3.app.n8n.cloud
 N8N_WEBHOOK_SECRET=inboxiq-n8n-shared-hmac-secret
 
 # 7. Admin Access List
