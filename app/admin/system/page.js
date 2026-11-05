@@ -67,6 +67,7 @@ export default function AdminSystemPage() {
 
   useEffect(() => {
     fetchHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getStatusIcon = (status) => {

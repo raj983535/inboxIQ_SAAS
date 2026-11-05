@@ -35,6 +35,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     refreshAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const user = data?.user;

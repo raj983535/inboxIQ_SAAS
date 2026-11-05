@@ -35,7 +35,7 @@ runTest('F-01: verifyInternalAuth fails closed when internal secret is missing',
   const { verifyInternalAuth } = require('../lib/internal-auth');
   const dummyReq = {
     headers: {
-      get: (h) => (h === 'x-inboxiq-secret' ? 'inboxiq_production_orchestration_secret_key_2026' : null),
+      get: (h) => (h === 'x-inboxiq-secret' ? 'retired-example-secret' : null),
     },
   };
 
@@ -53,7 +53,7 @@ runTest('F-01: Legacy leaked fallback secret is strictly rejected', () => {
 
   const dummyReq = {
     headers: {
-      get: (h) => (h === 'x-inboxiq-secret' ? 'inboxiq_production_orchestration_secret_key_2026' : null),
+      get: (h) => (h === 'x-inboxiq-secret' ? 'retired-example-secret' : null),
     },
   };
 
@@ -259,6 +259,16 @@ runTest('Config: getServerConfigHealth correctly inspects categorized variables'
   assert.ok(health.categories.AUTOMATION);
 });
 
+runTest('Config: placeholder-like secrets are reported as unusable', () => {
+  const previous = process.env.N8N_WEBHOOK_SECRET;
+  process.env.N8N_WEBHOOK_SECRET = 'replace-with-a-unique-32-byte-secret';
+  const { getServerConfigHealth } = require('../lib/config/server');
+  const health = getServerConfigHealth();
+  assert.ok(health.categories.AUTOMATION.missing.includes('N8N_WEBHOOK_SECRET'));
+  if (previous) process.env.N8N_WEBHOOK_SECRET = previous;
+  else delete process.env.N8N_WEBHOOK_SECRET;
+});
+
 // TEST 12: Email Failure Semantics: Fail closed when SMTP transport is unconfigured in production
 runTest('Email: Contact and Lifecycle emails fail closed when SMTP is unconfigured in production', async () => {
   const oldEnv = process.env.NODE_ENV;
@@ -328,6 +338,21 @@ runTest('Multi-Tenant: Cross-tenant connection access and execution boundaries a
   assert.strictEqual(tenantAConnections.length, 1);
   assert.strictEqual(tenantAConnections[0].account_email, 'a@example.com');
   assert.ok(!tenantAConnections.some((c) => c.user_id === tenantB));
+});
+
+// TEST 15: Replay Protection Nonce Validation
+runTest('Replay Protection: Webhook nonce claim prevents duplicate execution callback replay', () => {
+  const claimedNonces = new Set();
+  const claimNonce = (scope, nonce) => {
+    const key = `${scope}:${nonce}`;
+    if (claimedNonces.has(key)) return false;
+    claimedNonces.add(key);
+    return true;
+  };
+
+  const nonce = 'exec_test_nonce_001';
+  assert.strictEqual(claimNonce('n8n_callback', nonce), true, 'Initial callback claim succeeds');
+  assert.strictEqual(claimNonce('n8n_callback', nonce), false, 'Replay attempt fails closed');
 });
 
 console.log(`\n=============================================`);

@@ -63,6 +63,7 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     fetchReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -63,6 +63,7 @@ export default function AdminSubscriptionsPage() {
 
   useEffect(() => {
     fetchSubscriptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

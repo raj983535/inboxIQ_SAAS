@@ -190,7 +190,8 @@ RAZORPAY_PLAN_ID_PROFESSIONAL_INR=plan_...
 
 # 6. n8n Automation Engine (Origin URL, without /workflow/... or /webhook/... paths)
 N8N_BASE_URL=https://axiaracompany3.app.n8n.cloud
-N8N_WEBHOOK_SECRET=inboxiq-n8n-shared-hmac-secret
+# Generate a unique high-entropy secret. Store the real value only in your host and n8n credential store.
+N8N_WEBHOOK_SECRET=replace-with-a-unique-32-byte-secret
 
 # 7. Admin Access List
 ADMIN_EMAILS=admin@inboxiq.online

@@ -122,7 +122,7 @@
             },
             {
               "name": "x-inboxiq-secret",
-              "value": "inboxiq_production_orchestration_secret_key_2026"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -162,7 +162,7 @@
             },
             {
               "name": "x-inboxiq-secret",
-              "value": "inboxiq_production_orchestration_secret_key_2026"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -328,7 +328,7 @@
             },
             {
               "name": "x-inboxiq-secret",
-              "value": "inboxiq_production_orchestration_secret_key_2026"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -368,7 +368,7 @@
             },
             {
               "name": "x-inboxiq-secret",
-              "value": "inboxiq_production_orchestration_secret_key_2026"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },
@@ -408,7 +408,7 @@
             },
             {
               "name": "x-inboxiq-secret",
-              "value": "inboxiq_production_orchestration_secret_key_2026"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             }
           ]
         },

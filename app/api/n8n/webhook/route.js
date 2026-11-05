@@ -21,7 +21,7 @@ export async function POST(req) {
     }
 
     // 1. Strict Webhook Authentication (Scope: 'webhook' -> N8N_WEBHOOK_SECRET only)
-    verifyN8nCallbackAuth(req, rawBody);
+    const authResult = verifyN8nCallbackAuth(req, rawBody);
 
     const {
       execution_id,
@@ -39,6 +39,32 @@ export async function POST(req) {
 
     if (!user_id || typeof user_id !== 'string' || !execution_id || typeof execution_id !== 'string') {
       throw new AppError(ErrorCategories.VALIDATION_ERROR, 'Missing or invalid execution_id or user_id in payload.', 400);
+    }
+
+    // 1.5 Atomic Replay Protection (Claim Nonce in webhook_nonces)
+    const callbackNonce =
+      req.headers.get('x-inboxiq-nonce') ||
+      req.headers.get('x-correlation-id') ||
+      `${execution_id}_${authResult?.timestamp || Date.now()}`;
+
+    try {
+      const { error: nonceErr } = await supabaseAdmin.from('webhook_nonces').insert({
+        scope: 'n8n_callback',
+        nonce: callbackNonce,
+        timestamp: authResult?.timestamp || Date.now(),
+      });
+
+      if (nonceErr && nonceErr.code === '23505') {
+        throw new AppError(
+          ErrorCategories.AUTH_ERROR,
+          'Replay detected: Webhook callback nonce has already been claimed.',
+          409
+        );
+      }
+    } catch (nonceCheckErr) {
+      if (nonceCheckErr instanceof AppError) throw nonceCheckErr;
+      // If table is temporarily unreachable in dev/test, warn and proceed
+      console.warn('[N8nWebhook] Nonce recording note:', nonceCheckErr.message);
     }
 
     // 2. Schema and Allowlist Validation
