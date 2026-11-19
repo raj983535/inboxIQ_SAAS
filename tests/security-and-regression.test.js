@@ -355,6 +355,38 @@ runTest('Replay Protection: Webhook nonce claim prevents duplicate execution cal
   assert.strictEqual(claimNonce('n8n_callback', nonce), false, 'Replay attempt fails closed');
 });
 
+// TEST 16: Dynamic Profession Intelligence Profiling
+runTest('Dynamic Intelligence: Profession profile resolver adapts AI personas, keywords, and branding dynamically', async () => {
+  const { getProfessionIntelligenceProfile } = await import('../lib/n8n/native-engine.js');
+
+  const studentProf = getProfessionIntelligenceProfile('student');
+  assert.strictEqual(studentProf.key, 'student');
+  assert.ok(studentProf.importantKeywords.includes('assignment'));
+  assert.ok(studentProf.importantKeywords.includes('exam'));
+
+  const facultyProf = getProfessionIntelligenceProfile('professor_teacher');
+  assert.strictEqual(facultyProf.key, 'professor_teacher');
+  assert.ok(facultyProf.importantKeywords.includes('grading'));
+
+  const techProf = getProfessionIntelligenceProfile('software_engineer');
+  assert.strictEqual(techProf.key, 'software_it');
+  assert.ok(techProf.importantKeywords.includes('pull request'));
+  assert.ok(techProf.importantKeywords.includes('production outage'));
+
+  const doctorProf = getProfessionIntelligenceProfile('medical_doctor');
+  assert.strictEqual(doctorProf.key, 'doctor_healthcare');
+  assert.ok(doctorProf.importantKeywords.includes('patient'));
+
+  const lawyerProf = getProfessionIntelligenceProfile('attorney_law');
+  assert.strictEqual(lawyerProf.key, 'lawyer_legal');
+  assert.ok(lawyerProf.importantKeywords.includes('court'));
+
+  const customProf = getProfessionIntelligenceProfile('Civil Architect');
+  assert.strictEqual(customProf.label, 'Civil Architect');
+  assert.ok(customProf.roleTitle.includes('Civil Architect'));
+  assert.ok(customProf.importantKeywords.includes('client'));
+});
+
 console.log(`\n=============================================`);
 console.log(`🏁 Test Summary: ${passedTests}/${totalTests} Passed (100% Success)`);
 console.log(`=============================================\n`);
