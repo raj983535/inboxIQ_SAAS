@@ -7,6 +7,7 @@ import { generateCorrelationId, generateExecutionId } from '@/lib/utils';
 import { sendTrialExpiredRenewalReminderEmail, sendSubscriptionExpiredRenewalReminderEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60 seconds execution window for 200+ users concurrency
 
 /**
  * Hourly Cron Dispatcher (Next.js Control Plane Gatekeeper)
